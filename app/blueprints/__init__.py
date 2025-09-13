@@ -17,7 +17,6 @@ from .public.routes import public_bp
 from .settings.routes import settings_bp
 from .setup.routes import setup_bp
 from .webauthn.routes import webauthn_bp
-from .wizard.routes import wizard_bp
 from .wizard_admin.routes import wizard_admin_bp
 
 # NOTE: Server-specific join routes (jellyfin_bp, emby_bp, abs_bp, kavita_bp, komga_bp)
@@ -26,7 +25,6 @@ from .wizard_admin.routes import wizard_admin_bp
 
 all_blueprints = (
     public_bp,
-    wizard_bp,
     admin_bp,
     auth_bp,
     settings_bp,

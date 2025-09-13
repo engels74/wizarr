@@ -6,6 +6,7 @@ from flask import Blueprint, abort, redirect, render_template, request, session,
 from flask_babel import _
 from flask_login import current_user
 
+from app.extensions import db
 from app.models import (
     Invitation,
     MediaServer,
@@ -366,7 +367,7 @@ def bundle_view(idx: int):
     if not bundle_id:
         return redirect(url_for("wizard.start"))
 
-    bundle = WizardBundle.query.get(bundle_id)
+    bundle = db.session.get(WizardBundle, bundle_id)
     if not bundle:
         abort(404)
 

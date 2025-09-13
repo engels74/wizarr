@@ -419,65 +419,159 @@
     // nanoid package, for generating client-identifier in plexHeaders
     let nanoid = (t = 21) => crypto.getRandomValues(new Uint8Array(t)).reduce(((t, e) => t += (e &= 63) < 36 ? e.toString(36) : e < 62 ? (e - 26).toString(36).toUpperCase() : e > 62 ? "-" : "_"), "");
 
-    // adapted from overseerr
+    // Improved OAuth flow with better error handling
     async function oauth() {
-        let popup = window.open("", "Plex", 'width=600, height=700, toolbar=no, menubar=no');
-        const browser = window.bowser.getParser(window.navigator.userAgent);
-        const plexHeaders = {
-            Accept: 'application/json',
-            'X-Plex-Product': 'Wizarr',
-            'X-Plex-Version': 'Plex OAuth',
-            'X-Plex-Client-Identifier': nanoid(),
-            'X-Plex-Model': 'Plex OAuth',
-            'X-Plex-Platform': browser.getBrowserName(),
-            'X-Plex-Platform-Version': browser.getBrowserVersion(),
-            'X-Plex-Device': browser.getOSName(),
-            'X-Plex-Device-Name': `${browser.getBrowserName()} (Wizarr)`,
-            'X-Plex-Device-Screen-Resolution':
-                `${window.screen.width}x${window.screen.height}`,
-        }
-        const pin = await fetch("https://plex.tv/api/v2/pins?strong=true", {
-            method: "POST",
-            headers: plexHeaders
-        }).then(r => r.json())
+        let popup = null;
+        let interval = null;
 
-        const params = new URLSearchParams({
-            clientID: plexHeaders['X-Plex-Client-Identifier'],
-            'context[device][product]': plexHeaders['X-Plex-Product'],
-            'context[device][version]': plexHeaders['X-Plex-Version'],
-            'context[device][platform]': plexHeaders['X-Plex-Platform'],
-            'context[device][platformVersion]':
-                plexHeaders['X-Plex-Platform-Version'],
-            'context[device][device]': plexHeaders['X-Plex-Device'],
-            'context[device][deviceName]': plexHeaders['X-Plex-Device-Name'],
-            'context[device][model]': plexHeaders['X-Plex-Model'],
-            'context[device][screenResolution]':
-                plexHeaders['X-Plex-Device-Screen-Resolution'],
-            'context[device][layout]': 'desktop',
-            code: pin.code
-        });
+        try {
+            // Show loading state
+            const button = document.querySelector('button[onclick="oauth()"]');
+            const originalText = button ? button.textContent : '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Connecting to Plex...';
+            }
 
-        popup.location.href = `https://app.plex.tv/auth/#!?${params}`;
+            popup = window.open("", "Plex", 'width=600, height=700, toolbar=no, menubar=no');
+            if (!popup) {
+                throw new Error('Failed to open popup window. Please allow popups for this site.');
+            }
 
-        const authToken = await new Promise((resolve, reject) => {
-            const currentTime = Date.now()
-            const interval = setInterval(async () => {
-                if (popup.closed) return location.reload();
-                const resp = await fetch(`https://plex.tv/api/v2/pins/${pin.id}`, {
+            const browser = window.bowser.getParser(window.navigator.userAgent);
+            const plexHeaders = {
+                Accept: 'application/json',
+                'X-Plex-Product': 'Wizarr',
+                'X-Plex-Version': 'Plex OAuth',
+                'X-Plex-Client-Identifier': nanoid(),
+                'X-Plex-Model': 'Plex OAuth',
+                'X-Plex-Platform': browser.getBrowserName(),
+                'X-Plex-Platform-Version': browser.getBrowserVersion(),
+                'X-Plex-Device': browser.getOSName(),
+                'X-Plex-Device-Name': `${browser.getBrowserName()} (Wizarr)`,
+                'X-Plex-Device-Screen-Resolution':
+                    `${window.screen.width}x${window.screen.height}`,
+            }
+
+            // Create PIN with error handling
+            let pin;
+            try {
+                const pinResponse = await fetch("https://plex.tv/api/v2/pins?strong=true", {
+                    method: "POST",
                     headers: plexHeaders
-                }).then(r => r.json())
+                });
 
-                if (resp?.errors?.length) return location.reload();
-                if (resp?.authToken) {
-                    clearInterval(interval)
-                    resolve(resp.authToken);
-                    return;
+                if (!pinResponse.ok) {
+                    throw new Error(`Failed to create Plex PIN: ${pinResponse.status}`);
                 }
-            }, 1000)
-        });
-        document.querySelector("#token").value = authToken;
 
-        document.forms[0].submit();
+                pin = await pinResponse.json();
+                if (!pin.id || !pin.code) {
+                    throw new Error('Invalid PIN response from Plex');
+                }
+            } catch (error) {
+                throw new Error(`Failed to connect to Plex: ${error.message}`);
+            }
+
+            const params = new URLSearchParams({
+                clientID: plexHeaders['X-Plex-Client-Identifier'],
+                'context[device][product]': plexHeaders['X-Plex-Product'],
+                'context[device][version]': plexHeaders['X-Plex-Version'],
+                'context[device][platform]': plexHeaders['X-Plex-Platform'],
+                'context[device][platformVersion]':
+                    plexHeaders['X-Plex-Platform-Version'],
+                'context[device][device]': plexHeaders['X-Plex-Device'],
+                'context[device][deviceName]': plexHeaders['X-Plex-Device-Name'],
+                'context[device][model]': plexHeaders['X-Plex-Model'],
+                'context[device][screenResolution]':
+                    plexHeaders['X-Plex-Device-Screen-Resolution'],
+                'context[device][layout]': 'desktop',
+                code: pin.code
+            });
+
+            popup.location.href = `https://app.plex.tv/auth/#!?${params}`;
+
+            // Update button text
+            if (button) {
+                button.textContent = 'Waiting for Plex login...';
+            }
+
+            const authToken = await new Promise((resolve, reject) => {
+                let pollCount = 0;
+
+                interval = setInterval(async () => {
+                    pollCount++;
+
+                    // Check if popup was closed by user
+                    if (popup.closed) {
+                        clearInterval(interval);
+                        reject(new Error('Authentication cancelled'));
+                        return;
+                    }
+
+                    try {
+                        const resp = await fetch(`https://plex.tv/api/v2/pins/${pin.id}`, {
+                            headers: plexHeaders
+                        });
+
+                        if (!resp.ok) {
+                            console.warn(`PIN check failed: ${resp.status}`);
+                            return; // Continue polling
+                        }
+
+                        const data = await resp.json();
+
+                        if (data?.errors?.length) {
+                            clearInterval(interval);
+                            reject(new Error(`Plex error: ${data.errors[0].message || 'Unknown error'}`));
+                            return;
+                        }
+
+                        if (data?.authToken) {
+                            clearInterval(interval);
+                            popup.close();
+                            resolve(data.authToken);
+                            return;
+                        }
+                    } catch (error) {
+                        console.warn(`Poll attempt ${pollCount} failed:`, error);
+                        // Continue polling on network errors
+                    }
+                }, 1000); // 1 second polling interval
+            });
+
+            // Set token and submit form
+            const tokenInput = document.querySelector("#token");
+            if (!tokenInput) {
+                throw new Error('Token input field not found');
+            }
+
+            tokenInput.value = authToken;
+
+            // Update button for submission
+            if (button) {
+                button.textContent = 'Processing invitation...';
+            }
+
+            document.forms[0].submit();
+
+        } catch (error) {
+            console.error('OAuth error:', error);
+
+            // Clean up
+            if (interval) clearInterval(interval);
+            if (popup && !popup.closed) popup.close();
+
+            // Reset button
+            const button = document.querySelector('button[onclick="oauth()"]');
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText || 'Join Server';
+            }
+
+            // Show user-friendly error message
+            alert(`Authentication failed: ${error.message}\n\nPlease try again or contact support if the problem persists.`);
+        }
     }
 </script>
 {% endblock %}

@@ -179,3 +179,154 @@ Make sure disabled buttons don't get the pointer cursor.
 .animate__fastest {
   --animate-duration: 0.05s !important; /* Almost instant but still smooth */
 }
+
+/* Modern Wizard UI Components */
+@layer components {
+  /* Wizard Progress Tracker */
+  .wizard-progress-tracker {
+    @apply w-full max-w-md mx-auto;
+  }
+
+  .wizard-step-counter {
+    @apply text-center mb-4;
+  }
+
+  .wizard-phase-badge {
+    @apply inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+  }
+
+  .wizard-phase-badge-pre {
+    @apply bg-amber-100 text-amber-800 border border-amber-200;
+  }
+
+  .wizard-phase-badge-post {
+    @apply bg-emerald-100 text-emerald-800 border border-emerald-200;
+  }
+
+  .wizard-phase-badge-join {
+    @apply bg-blue-100 text-blue-800 border border-blue-200;
+  }
+
+  /* Dark mode variants */
+  .dark .wizard-phase-badge-pre {
+    @apply bg-amber-900/30 text-amber-300 border-amber-700;
+  }
+
+  .dark .wizard-phase-badge-post {
+    @apply bg-emerald-900/30 text-emerald-300 border-emerald-700;
+  }
+
+  .dark .wizard-phase-badge-join {
+    @apply bg-blue-900/30 text-blue-300 border-blue-700;
+  }
+
+  .wizard-progress-bar-container {
+    @apply relative overflow-hidden;
+  }
+
+  .wizard-progress-bar {
+    @apply transition-all duration-300 ease-out;
+    background: linear-gradient(90deg, var(--color-blue-primary) 0%, var(--color-blue-secondary) 100%);
+  }
+
+  /* Wizard Card */
+  .wizard-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden;
+    max-width: 42rem; /* 672px - slightly larger than max-w-md for better content display */
+    width: 100%;
+  }
+
+  .wizard-card-header {
+    @apply px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700;
+  }
+
+  .wizard-card-content {
+    @apply p-6;
+  }
+
+  .wizard-content-area {
+    @apply prose prose-slate dark:prose-invert max-w-none text-gray-800 dark:text-gray-200;
+  }
+
+  /* Wizard Navigation */
+  .wizard-navigation {
+    @apply flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700;
+  }
+
+  .wizard-btn {
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    min-width: 120px;
+  }
+
+  .wizard-btn-primary {
+    @apply bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 focus:ring-blue-500 shadow-sm hover:shadow-md transform hover:-translate-y-0.5;
+  }
+
+  .wizard-btn-secondary {
+    @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700;
+  }
+
+  /* Accessibility enhancements */
+  @media (prefers-reduced-motion: reduce) {
+    .wizard-progress-bar,
+    .wizard-btn {
+      transition: none;
+    }
+
+    .wizard-btn {
+      @apply transform-none;
+    }
+  }
+
+  /* Focus indicators for keyboard navigation */
+  .wizard-progress-tracker:focus-within,
+  .wizard-card:focus-within {
+    @apply ring-2 ring-blue-500 ring-offset-2;
+  }
+
+  .wizard-btn:focus-visible {
+    @apply ring-2 ring-offset-2 ring-blue-500;
+  }
+
+  /* Disabled state styling */
+  .wizard-btn[aria-disabled="true"] {
+    @apply opacity-60 cursor-not-allowed;
+    pointer-events: none;
+  }
+
+  /* Mobile responsive adjustments */
+  @media (max-width: 640px) {
+    .wizard-card {
+      @apply mx-4 rounded-lg;
+      max-width: calc(100vw - 2rem);
+    }
+
+    .wizard-card-content {
+      @apply p-4;
+    }
+
+    .wizard-navigation {
+      @apply flex-col gap-3;
+    }
+
+    .wizard-btn {
+      @apply w-full text-center;
+      min-width: auto;
+    }
+
+    .wizard-nav-previous,
+    .wizard-nav-next {
+      @apply w-full;
+    }
+  }
+
+  /* Loading state for HTMX */
+  .wizard-btn.htmx-request {
+    @apply opacity-75 cursor-wait;
+  }
+
+  .wizard-btn.htmx-request::after {
+    content: "";
+    @apply inline-block w-4 h-4 ml-2 border-2 border-current border-t-transparent rounded-full animate-spin;
+  }
+}

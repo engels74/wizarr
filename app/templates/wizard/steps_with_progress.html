@@ -1,0 +1,10 @@
+{# templates/wizard/steps_with_progress.html #}
+{# This template is used for HTMX requests to update both wizard content and progress indicator #}
+
+{# Include the main wizard steps content #}
+{% include "wizard/steps.html" %}
+
+{# Out-of-band swap for progress indicator #}
+<div hx-swap-oob="innerHTML:#progress-indicator">
+    {% include "wizard/progress_indicator.html" %}
+</div>

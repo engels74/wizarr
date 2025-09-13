@@ -1,3 +1,4 @@
+import enum
 from datetime import UTC, datetime
 
 from flask_login import UserMixin
@@ -293,8 +294,6 @@ class User(db.Model, UserMixin):
         # Extract library names
         if details.library_access is None:
             # Full access - get all server libraries
-            from app.models import Library
-
             if self.server_id:
                 all_libs = Library.query.filter_by(
                     server_id=self.server_id, enabled=True
@@ -488,11 +487,18 @@ class Identity(db.Model):
         super().__init__(**kwargs)
 
 
+class WizardPhase(enum.Enum):
+    """Enum for wizard step phases."""
+
+    PRE = "pre"  # Before invite acceptance
+    POST = "post"  # After invite acceptance
+
+
 class WizardStep(db.Model):
     """Markdown wizard page stored in the database instead of loose files.
 
-    Each *server_type* (plex, jellyfin, …) owns an ordered list of steps with
-    an integer *position* starting at 0.  A `(server_type, position)` unique
+    Each *server_type* and *phase* combination owns an ordered list of steps with
+    an integer *position* starting at 0.  A `(server_type, phase, position)` unique
     constraint guarantees a stable order without gaps.
     """
 
@@ -503,7 +509,10 @@ class WizardStep(db.Model):
     # Target backend this step is meant for (plex / emby / etc.)
     server_type = db.Column(db.String, nullable=False)
 
-    # Sort index within the server group – lower numbers appear first
+    # Phase when this step should be shown (pre-invite or post-invite)
+    phase = db.Column(db.Enum(WizardPhase), nullable=False, default=WizardPhase.POST)
+
+    # Sort index within the server and phase group – lower numbers appear first
     position = db.Column(db.Integer, nullable=False)
 
     # Optional page title – if omitted we will derive it from the first H1 in
@@ -531,7 +540,9 @@ class WizardStep(db.Model):
     )
 
     __table_args__ = (
-        db.UniqueConstraint("server_type", "position", name="uq_step_server_pos"),
+        db.UniqueConstraint(
+            "server_type", "phase", "position", name="uq_step_server_phase_pos"
+        ),
     )
 
     def __init__(self, **kwargs):
@@ -543,6 +554,7 @@ class WizardStep(db.Model):
         return {
             "id": self.id,
             "server_type": self.server_type,
+            "phase": self.phase.value if self.phase else "post",
             "position": self.position,
             "title": self.title,
             "markdown": self.markdown,

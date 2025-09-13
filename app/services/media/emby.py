@@ -233,7 +233,9 @@ class EmbyClient(JellyfinClient):
         if not server_id:
             return success, message
 
-        current_server = MediaServer.query.get(server_id)
+        from app.extensions import db
+
+        current_server = db.session.get(MediaServer, server_id)
         if not current_server:
             return success, message
 

@@ -1,0 +1,188 @@
+{# components/wizard_card.html #}
+{# 
+Modern, accessible wizard card component.
+Provides consistent card styling across all wizard flows.
+
+Parameters:
+- content: Main content to display (HTML)
+- title: Optional card title
+- require_interaction: Whether step requires user interaction
+- card_class: Additional CSS classes for the card (optional)
+- content_class: Additional CSS classes for content area (optional)
+#}
+
+{# Set defaults and map wizard context variables #}
+{% set content = content|default(body_html) %}
+{% set card_class = card_class|default('') %}
+{% set content_class = content_class|default('') %}
+
+<div class="wizard-card bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden {{ card_class }}"
+     role="main"
+     aria-label="Wizard step content">
+  
+  {% if title %}
+  <!-- Card Header -->
+  <div class="wizard-card-header px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+      {{ title }}
+    </h2>
+  </div>
+  {% endif %}
+
+  <!-- Card Content -->
+  <div class="wizard-card-content p-6 {{ content_class }}">
+    <!-- Main Content Area -->
+    <div class="wizard-content-area prose prose-slate dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+         {% if require_interaction %}data-interaction-required="true"{% endif %}>
+      {{ content|safe }}
+    </div>
+
+    <!-- Interaction Required Notice -->
+    {% if require_interaction %}
+    <div class="wizard-interaction-notice mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg"
+         role="alert"
+         aria-live="polite">
+      <div class="flex items-start">
+        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" 
+             fill="currentColor" 
+             viewBox="0 0 20 20" 
+             aria-hidden="true">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+        </svg>
+        <div>
+          <h3 class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+            Action Required
+          </h3>
+          <p class="text-sm text-blue-700 dark:text-blue-400">
+            Please read the above information carefully and interact with any links or buttons to continue.
+          </p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+/* Modern wizard card styles */
+.wizard-card {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden;
+  max-width: 42rem; /* 672px - slightly larger than max-w-md for better content display */
+  width: 100%;
+}
+
+.wizard-card-header {
+  @apply px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50;
+}
+
+.dark .wizard-card-header {
+  @apply bg-gray-700;
+}
+
+.wizard-card-content {
+  @apply p-6;
+}
+
+.wizard-content-area {
+  @apply prose prose-slate dark:prose-invert max-w-none text-gray-800 dark:text-gray-200;
+}
+
+/* Enhanced prose styling for wizard content */
+.wizard-content-area h1 {
+  @apply text-2xl font-bold text-gray-900 dark:text-white mb-4 mt-0;
+}
+
+.wizard-content-area h2 {
+  @apply text-xl font-semibold text-gray-900 dark:text-white mb-3 mt-6;
+}
+
+.wizard-content-area h3 {
+  @apply text-lg font-medium text-gray-900 dark:text-white mb-2 mt-4;
+}
+
+.wizard-content-area p {
+  @apply text-gray-700 dark:text-gray-300 mb-4 leading-relaxed;
+}
+
+.wizard-content-area a {
+  @apply text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline decoration-2 underline-offset-2 transition-colors;
+}
+
+.wizard-content-area a.btn {
+  @apply inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 no-underline font-medium transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5;
+}
+
+.wizard-content-area ul, 
+.wizard-content-area ol {
+  @apply mb-4 pl-6;
+}
+
+.wizard-content-area li {
+  @apply mb-2 text-gray-700 dark:text-gray-300;
+}
+
+.wizard-content-area code {
+  @apply bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono;
+}
+
+.wizard-content-area pre {
+  @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto;
+}
+
+/* Interaction notice styling */
+.wizard-interaction-notice {
+  @apply mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg;
+}
+
+.dark .wizard-interaction-notice {
+  @apply bg-blue-900/20 border-blue-800;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .wizard-card {
+    @apply mx-4 rounded-lg;
+    max-width: calc(100vw - 2rem);
+  }
+  
+  .wizard-card-content {
+    @apply p-4;
+  }
+  
+  .wizard-content-area h1 {
+    @apply text-xl;
+  }
+  
+  .wizard-content-area h2 {
+    @apply text-lg;
+  }
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .wizard-content-area a.btn {
+    @apply transform-none;
+    transition: background-color 0.2s, box-shadow 0.2s;
+  }
+}
+
+/* Focus indicators */
+.wizard-card:focus-within {
+  @apply ring-2 ring-blue-500 ring-offset-2;
+}
+
+/* Loading state for HTMX */
+.wizard-card.htmx-request {
+  @apply opacity-75;
+}
+
+.wizard-card.htmx-request::after {
+  content: "";
+  @apply absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center;
+}
+
+.wizard-card.htmx-request::before {
+  content: "";
+  @apply absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin z-10;
+}
+</style>

@@ -127,7 +127,7 @@ def create_server():
 @media_servers_bp.post("/<int:server_id>/scan-libraries")
 @login_required
 def scan_server_libraries(server_id):
-    server = MediaServer.query.get_or_404(server_id)
+    server = db.get_or_404(MediaServer, server_id)
     try:
         items = scan_libraries_for_server(server)
     except Exception as exc:
@@ -165,7 +165,7 @@ def scan_server_libraries(server_id):
 @media_servers_bp.route("/<int:server_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_server(server_id):
-    server = MediaServer.query.get_or_404(server_id)
+    server = db.get_or_404(MediaServer, server_id)
     if request.method == "POST":
         data = request.form.to_dict()
 
@@ -233,7 +233,7 @@ def delete_server():
 @login_required
 def ping_server(server_id):
     """Return JSON reflecting whether a media server is currently reachable."""
-    server = MediaServer.query.get_or_404(server_id)
+    server = db.get_or_404(MediaServer, server_id)
 
     ok, error_msg = _check_connection(
         {
@@ -271,7 +271,7 @@ def ping_server(server_id):
 @login_required
 def get_server_statistics(server_id):
     """Return comprehensive statistics for a specific media server."""
-    server = MediaServer.query.get_or_404(server_id)
+    server = db.get_or_404(MediaServer, server_id)
 
     try:
         # Import the service to get the appropriate client
@@ -305,7 +305,7 @@ def get_server_statistics(server_id):
 @login_required
 def get_server_health(server_id):
     """Return lightweight health statistics without triggering user sync."""
-    server = MediaServer.query.get_or_404(server_id)
+    server = db.get_or_404(MediaServer, server_id)
 
     try:
         # Import the service to get the appropriate client

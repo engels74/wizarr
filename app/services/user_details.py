@@ -38,7 +38,9 @@ class UserDetailsService:
 
     def get_user_details(self, db_id: int) -> UserDetailsDTO:
         """Retrieve detailed information for a user including linked accounts."""
-        user = User.query.get_or_404(db_id)
+        from app.extensions import db
+
+        user = db.get_or_404(User, db_id)
 
         join_date = self._get_join_date(user)
         accounts = self._get_linked_accounts(user)

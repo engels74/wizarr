@@ -54,7 +54,7 @@ class TestInvitationFlowManager:
     def test_process_invitation_display_valid(
         self, mock_invitation_model, mock_is_valid, app
     ):
-        """Test display with valid invitation"""
+        """Test join request with valid invitation"""
         mock_is_valid.return_value = (True, "Valid invitation")
 
         # Mock invitation
@@ -64,7 +64,7 @@ class TestInvitationFlowManager:
         mock_invitation.server = None
 
         mock_query = Mock()
-        mock_query.filter.return_value.first.return_value = mock_invitation
+        mock_query.filter_by.return_value.first.return_value = mock_invitation
         mock_invitation_model.query = mock_query
 
         # Mock MediaServer query
@@ -76,8 +76,14 @@ class TestInvitationFlowManager:
             mock_media_server.query.first.return_value = mock_server
 
             with app.app_context():
+                from flask import session
+
+                # Set up session as if user came from /j/<token>
+                session["invite_token"] = "TEST123"
+                session["invitation_in_progress"] = True
+
                 manager = InvitationFlowManager()
-                result = manager.process_invitation_display("TEST123")
+                result = manager.process_join_request()
 
                 assert result.status in [
                     ProcessingStatus.AUTHENTICATION_REQUIRED,
@@ -487,9 +493,14 @@ class TestEndToEndFlow:
             invitation.servers.append(server)
             db.session.commit()
 
-            # Test display
+            # Test join request (after token is stored in session)
+            from flask import session
+
+            session["invite_token"] = "E2E123"
+            session["invitation_in_progress"] = True
+
             manager = InvitationFlowManager()
-            display_result = manager.process_invitation_display("E2E123")
+            display_result = manager.process_join_request()
 
             assert display_result.status == ProcessingStatus.AUTHENTICATION_REQUIRED
             assert display_result.template_data is not None
@@ -542,9 +553,14 @@ class TestEndToEndFlow:
             invitation.servers.append(server)
             db.session.commit()
 
-            # Test display
+            # Test join request (after token is stored in session)
+            from flask import session
+
+            session["invite_token"] = "PLEX123"
+            session["invitation_in_progress"] = True
+
             manager = InvitationFlowManager()
-            display_result = manager.process_invitation_display("PLEX123")
+            display_result = manager.process_join_request()
 
             assert display_result.status == ProcessingStatus.OAUTH_PENDING
             assert display_result.template_data is not None

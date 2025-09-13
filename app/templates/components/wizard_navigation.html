@@ -1,0 +1,182 @@
+{# components/wizard_navigation.html #}
+{# 
+Modern, accessible navigation component for wizard steps.
+Reusable across all wizard flows with consistent styling and behavior.
+
+Parameters:
+- current_step: Current step index (0-based)
+- total_steps: Total number of steps
+- prev_url: URL for previous step (optional)
+- next_url: URL for next step (optional)
+- complete_url: URL for completion (used on final step)
+- require_interaction: Whether current step requires user interaction
+- is_final_step: Whether this is the final step
+- completion_text: Text for completion button (default: "Complete Setup")
+- next_text: Text for next button (default: "Next")
+- prev_text: Text for previous button (default: "Previous")
+- show_previous: Whether to show previous button (default: true)
+#}
+
+{# Set defaults and map wizard context variables #}
+{% set current_step = current_step|default(idx|default(0)) %}
+{% set total_steps = total_steps|default(max_idx + 1 if max_idx is defined else 1) %}
+{% set completion_text = completion_text|default("Complete Setup") %}
+{% set next_text = next_text|default("Next") %}
+{% set prev_text = prev_text|default("Previous") %}
+{% set show_previous = show_previous|default(true) %}
+{% set is_final_step = is_final_step|default(current_step >= total_steps - 1) %}
+
+<nav class="wizard-navigation flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700"
+     aria-label="Wizard navigation">
+  
+  <!-- Previous Button -->
+  <div class="wizard-nav-previous order-2 sm:order-1">
+    {% if show_previous and prev_url and current_step > 0 %}
+    <a href="{{ prev_url }}"
+       hx-get="{{ prev_url }}"
+       hx-vals='{"dir":"prev"}'
+       hx-target="#wizard-wrapper"
+       hx-swap="outerHTML"
+       class="wizard-btn wizard-btn-secondary"
+       role="button"
+       tabindex="0"
+       aria-label="Go to previous step">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+      </svg>
+      {{ prev_text }}
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Step Indicator (Mobile) -->
+  <div class="wizard-nav-indicator order-1 sm:order-2 sm:hidden">
+    <span class="text-sm text-gray-500 dark:text-gray-400">
+      {{ current_step + 1 }} / {{ total_steps }}
+    </span>
+  </div>
+
+  <!-- Next/Complete Button -->
+  <div class="wizard-nav-next order-3">
+    {% if is_final_step %}
+      <!-- Final Step - Complete Button -->
+      {% if complete_url %}
+      <form method="post" action="{{ complete_url }}" class="inline">
+        <button type="submit"
+                class="wizard-btn wizard-btn-primary"
+                id="complete-btn"
+                role="button"
+                tabindex="0"
+                {% if require_interaction %}
+                  aria-disabled="true"
+                  data-disabled="1"
+                  title="Click the link in this step to be able to continue"
+                  style="opacity: 0.6; pointer-events: none;"
+                {% endif %}
+                aria-label="Complete wizard setup">
+          {{ completion_text }}
+          <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </button>
+      </form>
+      {% endif %}
+    {% else %}
+      <!-- Regular Next Button -->
+      {% if next_url %}
+      <a href="{{ next_url }}"
+         hx-get="{{ next_url }}"
+         hx-vals='{"dir":"next"}'
+         hx-target="#wizard-wrapper"
+         hx-swap="outerHTML"
+         class="wizard-btn wizard-btn-primary"
+         id="next-btn"
+         role="button"
+         tabindex="0"
+         {% if require_interaction %}
+           aria-disabled="true"
+           data-disabled="1"
+           title="Click the link in this step to be able to continue"
+           style="opacity: 0.6; pointer-events: none;"
+         {% endif %}
+         aria-label="Go to next step">
+        {{ next_text }}
+        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+      </a>
+      {% endif %}
+    {% endif %}
+  </div>
+</nav>
+
+<style>
+/* Modern wizard navigation styles */
+.wizard-navigation {
+  @apply flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700;
+}
+
+.wizard-btn {
+  @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  min-width: 120px;
+}
+
+.wizard-btn-primary {
+  @apply bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 focus:ring-blue-500 shadow-sm hover:shadow-md transform hover:-translate-y-0.5;
+}
+
+.wizard-btn-secondary {
+  @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700;
+}
+
+/* Dark mode enhancements */
+.dark .wizard-btn-primary {
+  @apply from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700;
+}
+
+/* Disabled state styling */
+.wizard-btn[aria-disabled="true"] {
+  @apply opacity-60 cursor-not-allowed;
+  pointer-events: none;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 640px) {
+  .wizard-navigation {
+    @apply flex-col gap-3;
+  }
+  
+  .wizard-btn {
+    @apply w-full text-center;
+    min-width: auto;
+  }
+  
+  .wizard-nav-previous,
+  .wizard-nav-next {
+    @apply w-full;
+  }
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .wizard-btn {
+    @apply transform-none;
+    transition: background-color 0.2s, border-color 0.2s, opacity 0.2s;
+  }
+}
+
+/* Focus indicators for keyboard navigation */
+.wizard-btn:focus-visible {
+  @apply ring-2 ring-offset-2 ring-blue-500;
+}
+
+/* Loading state (for HTMX requests) */
+.wizard-btn.htmx-request {
+  @apply opacity-75 cursor-wait;
+}
+
+.wizard-btn.htmx-request::after {
+  content: "";
+  @apply inline-block w-4 h-4 ml-2 border-2 border-current border-t-transparent rounded-full animate-spin;
+}
+</style>

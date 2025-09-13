@@ -67,10 +67,72 @@ def process_invitation():
     return result.to_flask_response()
 
 
-# ─── POST /join  (Legacy Plex OAuth route - kept for compatibility) ────────
+# ─── New routing flow for pre/post wizard system ─────────────────────────
+@public_bp.route("/join", methods=["GET"])
+@limiter.limit("50 per minute")
+def join():
+    """Route user to appropriate flow - pre-wizard or invite acceptance."""
+    from app.services.invitation_flow import InvitationFlowManager
+
+    # Check if we should skip pre-steps (e.g., coming from pre-wizard completion)
+    skip_pre_param = request.args.get("skip_pre", "").lower() in ("true", "1", "yes")
+    skip_pre_steps = skip_pre_param or session.get("pre_wizard_completed", False)
+
+    manager = InvitationFlowManager()
+    result = manager.process_join_request(skip_pre_steps=skip_pre_steps)
+    return result.to_flask_response()
+
+
+@public_bp.route("/pre-wizard", methods=["GET"])
+@limiter.limit("50 per minute")
+def pre_wizard():
+    """Pre-invite wizard steps."""
+    from app.services.invitation_flow import InvitationFlowManager
+
+    manager = InvitationFlowManager()
+    step = request.args.get("step", type=int)
+    result = manager.process_pre_wizard_request(step)
+    return result.to_flask_response()
+
+
+@public_bp.route("/post-wizard", methods=["GET"])
+@limiter.limit("50 per minute")
+def post_wizard():
+    """Post-invite wizard steps."""
+    from app.services.invitation_flow import InvitationFlowManager
+
+    manager = InvitationFlowManager()
+    step = request.args.get("step", type=int)
+    result = manager.process_post_wizard_request(step)
+    return result.to_flask_response()
+
+
+@public_bp.route("/pre-wizard/complete", methods=["POST"])
+@limiter.limit("20 per minute")
+def pre_wizard_complete():
+    """Complete pre-wizard flow."""
+    # Mark pre-wizard as completed and redirect to invite acceptance
+    session["pre_wizard_completed"] = True
+    return redirect(url_for("public.join"))
+
+
+@public_bp.route("/post-wizard/complete", methods=["POST"])
+@limiter.limit("20 per minute")
+def post_wizard_complete():
+    """Complete post-wizard flow."""
+    # Clean up session and redirect to success page
+    session.pop("invite_token", None)
+    session.pop("invitation_in_progress", None)
+    session.pop("invite_accepted", None)
+    session.pop("pre_wizard_completed", None)
+    session.pop("wizard_servers", None)
+    return redirect(url_for("public.root"))
+
+
+# ─── Legacy /join POST route for backward compatibility ────────────────────
 @public_bp.route("/join", methods=["POST"])
 @limiter.limit("20 per minute")
-def join():
+def join_legacy():
     code = request.form.get("code")
     token = request.form.get("token")
 
@@ -121,27 +183,98 @@ def join():
     if server_type == "plex":
         # run Plex OAuth invite immediately (blocking – we need the DB row afterwards)
         if token and code:
-            try:
-                handle_oauth_token(current_app, token, code)
-            except PlexInvitationError as e:
-                # Show user-friendly error message from Plex API
-                name_setting = Settings.query.filter_by(key="server_name").first()
-                server_name = name_setting.value if name_setting else None
+            # Validate token format before processing
+            if not token.strip() or len(token.strip()) < 10:
+                from app.services.server_name_resolver import (
+                    resolve_invitation_server_name,
+                )
+
+                servers = []
+                if invitation and invitation.servers:
+                    servers = list(invitation.servers)
+                elif invitation and invitation.server:
+                    servers = [invitation.server]
+                server_name = resolve_invitation_server_name(servers)
 
                 return render_template(
                     "user-plex-login.html",
                     server_name=server_name,
                     code=code,
-                    code_error=f"Plex invitation failed: {e.message}",
+                    code_error="Invalid OAuth token received. Please try logging in again.",
+                )
+
+            try:
+                handle_oauth_token(current_app, token, code)
+                import logging
+
+                logging.info(f"Successfully processed Plex OAuth for invitation {code}")
+
+            except PlexInvitationError as e:
+                # Show user-friendly error message from Plex API
+                import logging
+
+                logging.warning(f"Plex invitation error for code {code}: {e}")
+                from app.services.server_name_resolver import (
+                    resolve_invitation_server_name,
+                )
+
+                servers = []
+                if invitation and invitation.servers:
+                    servers = list(invitation.servers)
+                elif invitation and invitation.server:
+                    servers = [invitation.server]
+                server_name = resolve_invitation_server_name(servers)
+
+                return render_template(
+                    "user-plex-login.html",
+                    server_name=server_name,
+                    code=code,
+                    code_error=f"Plex invitation failed: {getattr(e, 'message', str(e))}",
+                )
+            except ValueError as e:
+                # Handle validation errors with specific messages
+                import logging
+
+                logging.error(
+                    f"Validation error during Plex OAuth for code {code}: {e}"
+                )
+                from app.services.server_name_resolver import (
+                    resolve_invitation_server_name,
+                )
+
+                servers = []
+                if invitation and invitation.servers:
+                    servers = list(invitation.servers)
+                elif invitation and invitation.server:
+                    servers = [invitation.server]
+                server_name = resolve_invitation_server_name(servers)
+
+                return render_template(
+                    "user-plex-login.html",
+                    server_name=server_name,
+                    code=code,
+                    code_error=f"Invalid request: {str(e)}",
                 )
             except Exception as e:
                 # Handle any other unexpected errors
                 import logging
+                import traceback
 
-                logging.error(f"Unexpected error during Plex OAuth: {e}")
+                logging.error(
+                    f"Unexpected error during Plex OAuth for code {code}: {e}"
+                )
+                logging.error(f"Traceback: {traceback.format_exc()}")
 
-                name_setting = Settings.query.filter_by(key="server_name").first()
-                server_name = name_setting.value if name_setting else None
+                from app.services.server_name_resolver import (
+                    resolve_invitation_server_name,
+                )
+
+                servers = []
+                if invitation and invitation.servers:
+                    servers = list(invitation.servers)
+                elif invitation and invitation.server:
+                    servers = [invitation.server]
+                server_name = resolve_invitation_server_name(servers)
 
                 return render_template(
                     "user-plex-login.html",
@@ -163,9 +296,28 @@ def join():
             session["invite_token"] = token
             return redirect(url_for("public.password_prompt", code=code))
 
-        # No other servers → continue to wizard as before
+        # No other servers → set as accepted and continue to post-wizard
+        session["invite_accepted"] = True
         session["wizard_access"] = code
-        return redirect(url_for("wizard.start"))
+
+        # Check for post-invite steps
+        from app.services.invitation_flow import InvitationFlowManager
+
+        manager = InvitationFlowManager()
+
+        # Get servers for post-step check
+        servers = []
+        if invitation and invitation.servers:
+            servers = list(invitation.servers)
+        elif invitation and invitation.server:
+            servers = [invitation.server]
+
+        post_steps = manager._get_post_invite_steps(servers)
+        if post_steps:
+            return redirect(url_for("public.post_wizard"))
+
+        # No post-steps, redirect to home
+        return redirect(url_for("public.root"))
     if server_type in (
         "jellyfin",
         "emby",
@@ -367,8 +519,27 @@ def password_prompt(code):
 
                 logging.error("Failed to provision user on %s: %s", srv.name, exc)
 
+        session["invite_accepted"] = True
         session["wizard_access"] = code
-        return redirect(url_for("wizard.start"))
+
+        # Check for post-invite steps
+        from app.services.invitation_flow import InvitationFlowManager
+
+        manager = InvitationFlowManager()
+
+        # Get servers for post-step check (from invitation)
+        servers = []
+        if invitation and invitation.servers:
+            servers = list(invitation.servers)
+        elif invitation and invitation.server:
+            servers = [invitation.server]
+
+        post_steps = manager._get_post_invite_steps(servers)
+        if post_steps:
+            return redirect(url_for("public.post_wizard"))
+
+        # No post-steps, redirect to home
+        return redirect(url_for("public.root"))
 
     # GET request – show form
     return render_template("choose-password.html", code=code)

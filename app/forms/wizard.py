@@ -19,6 +19,17 @@ class WizardStepForm(FlaskForm):
         validators=[DataRequired()],
     )
 
+    phase = SelectField(
+        "Phase",
+        choices=[
+            ("pre", "Before Invite Acceptance"),
+            ("post", "After Invite Acceptance"),
+        ],
+        validators=[DataRequired()],
+        default="post",
+        description="When should this step be shown to users?",
+    )
+
     position = HiddenField("Position", default="0")
 
     title = StringField("Title", validators=[Optional()])

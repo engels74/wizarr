@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Preview Wizard Steps - {{ server_name }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+/* Preview-specific styling */
+.preview-banner {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.preview-banner::before {
+    content: "👁️ ";
+    margin-right: 0.5rem;
+}
+
+.wizard-progress {
+    width: 100%;
+    height: 6px;
+    background-color: #e5e7eb;
+    border-radius: 3px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.wizard-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+.wizard-content {
+    max-width: 4xl;
+    margin: 0 auto;
+    padding: 2rem;
+    min-height: calc(100vh - 200px);
+}
+
+.phase-badge {
+    display: inline-block;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+}
+
+.phase-badge-pre {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+}
+
+.phase-badge-post {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #10b981;
+}
+
+.phase-badge-join {
+    background: #e0e7ff;
+    color: #3730a3;
+    border: 1px solid #6366f1;
+}
+
+.wizard-step-content {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    padding: 2.5rem;
+    margin: 1rem 0;
+    border: 2px solid transparent;
+    position: relative;
+}
+
+.wizard-step-content::before {
+    content: "PREVIEW MODE";
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+}
+
+.wizard-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+    gap: 1rem;
+}
+
+.btn-wizard {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-wizard-primary {
+    background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+.btn-wizard-primary:hover {
+    background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    text-decoration: none;
+    color: white;
+}
+
+.btn-wizard-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.btn-wizard-secondary:hover {
+    background: #e5e7eb;
+    transform: translateY(-1px);
+    text-decoration: none;
+    color: #374151;
+}
+
+.step-counter {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.step-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.dark .step-info {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.interaction-preview {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 0.5rem;
+}
+
+.dark .interaction-preview {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+}
+
+.interaction-preview .btn-wizard {
+    opacity: 0.7;
+    cursor: default;
+    pointer-events: none;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.breadcrumb a {
+    color: #3b82f6;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+    .wizard-content {
+        padding: 1rem;
+    }
+
+    .wizard-navigation {
+        flex-direction: column-reverse;
+        gap: 0.75rem;
+    }
+
+    .btn-wizard {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .breadcrumb {
+        flex-wrap: wrap;
+    }
+}
+
+/* Dark mode support */
+.dark .wizard-step-content {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+.dark .wizard-step-content::before {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+}
+
+.dark .step-counter {
+    color: #9ca3af;
+}
+
+.dark .breadcrumb {
+    color: #9ca3af;
+}
+</style>
+{% endblock %}
+
+{% block main %}
+<!-- Preview Banner -->
+<div class="preview-banner">
+    Preview Mode - {{ server_name }} Wizard Steps
+</div>
+
+<div class="wizard-content">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{{ url_for('settings.page') }}#wizard">Settings</a>
+        <span>→</span>
+        <a href="{{ url_for('wizard_admin.list_steps') }}">Wizard Steps</a>
+        <span>→</span>
+        <span>Preview {{ server_name }}</span>
+    </div>
+
+    <!-- Header -->
+    <div class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {{ phase_title }}
+        </h1>
+
+        <div class="phase-badge phase-badge-{{ phase }}">
+            {{ phase }}-{% if phase == 'join' %}invite{% else %}invite step{% endif %}
+        </div>
+
+        <div class="step-counter">
+            Step {{ current_step + 1 }} of {{ total_steps }}
+            {% if total_steps > 1 %}
+            ({{ pre_steps_count }} pre + 1 join + {{ post_steps_count }} post)
+            {% endif %}
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="wizard-progress">
+            <div class="wizard-progress-bar"
+                 style="width: {{ progress_percentage | round(1) }}%">
+            </div>
+        </div>
+    </div>
+
+    <!-- Step Information -->
+    <div class="step-info">
+        <h3 class="font-semibold text-gray-900 dark:text-white">{{ step_description }}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {% if phase == 'pre' %}
+            This step is shown to users before they accept the invitation.
+            {% elif phase == 'join' %}
+            This is where users accept the invitation and create their account.
+            {% elif phase == 'post' %}
+            This step is shown to users after they successfully accept the invitation.
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Step Content -->
+    <div class="wizard-step-content">
+        {% if step_title %}
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ step_title }}</h2>
+        {% endif %}
+
+        {% if rendered_content %}
+        <div class="prose prose-lg max-w-none dark:prose-invert">
+            {{ rendered_content | safe }}
+        </div>
+        {% else %}
+        <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+            <p>No content available for this step.</p>
+        </div>
+        {% endif %}
+
+        {% if require_interaction %}
+        <div class="interaction-preview">
+            <p class="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                <strong>Interaction Required:</strong> In the actual wizard, users must interact with this step before continuing.
+            </p>
+            <button type="button" class="btn-wizard btn-wizard-primary">
+                I Understand (Preview Only)
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Navigation -->
+    <div class="wizard-navigation">
+        <div>
+            {% if prev_url %}
+            <a href="{{ prev_url }}" class="btn-wizard btn-wizard-secondary">
+                ← Previous
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="flex gap-2">
+            {% if next_url %}
+            <a href="{{ next_url }}" class="btn-wizard btn-wizard-primary">
+                {% if phase == 'pre' and current_step == pre_steps_count - 1 %}
+                    Accept Invitation →
+                {% elif phase == 'join' %}
+                    Continue Setup →
+                {% elif phase == 'post' and current_step == total_steps - 1 %}
+                    Complete Setup →
+                {% else %}
+                    Continue →
+                {% endif %}
+            </a>
+            {% else %}
+            <div class="btn-wizard btn-wizard-primary opacity-50 cursor-not-allowed">
+                Preview Complete ✓
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Footer Information -->
+    <div class="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Preview Information:</h4>
+        <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+            <li>• Server Type: <strong>{{ server_type }}</strong></li>
+            <li>• Total Steps: <strong>{{ total_steps }}</strong> ({{ pre_steps_count }} pre-invite + 1 join + {{ post_steps_count }} post-invite)</li>
+            <li>• Current Phase: <strong>{{ phase_title }}</strong></li>
+            <li>• This preview shows the exact user experience for {{ server_name }} invitations</li>
+            <li>• All forms and interactions are non-functional in preview mode</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
