@@ -299,10 +299,11 @@ class PlexClient(MediaClient):
 
     def get_user_details(self, db_id: int) -> "MediaUserDetails":
         """Get detailed user information in standardized format."""
+        from app.extensions import db
         from app.models import Library
         from app.services.media.user_details import MediaUserDetails, UserLibraryAccess
 
-        user_record = User.query.get(db_id)
+        user_record = db.session.get(User, db_id)
         if not user_record:
             raise ValueError(f"No user found with id {db_id}")
 
@@ -963,12 +964,71 @@ class PlexClient(MediaClient):
 
 
 def handle_oauth_token(app, token: str, code: str) -> None:
-    with app.app_context():
-        account = MyPlexAccount(token=token)
-        email = account.email
+    """
+    Handle Plex OAuth token with improved error handling and validation.
 
+    Args:
+        app: Flask application instance
+        token: OAuth token from Plex
+        code: Invitation code
+
+    Raises:
+        PlexInvitationError: When invitation processing fails
+        ValueError: When required data is missing or invalid
+    """
+    import time
+
+    from sqlalchemy.exc import SQLAlchemyError
+
+    with app.app_context():
+        # Validate inputs
+        if not token or not token.strip():
+            raise ValueError("OAuth token is required")
+        if not code or not code.strip():
+            raise ValueError("Invitation code is required")
+
+        # Validate OAuth token and get account info with retry logic
+        account: MyPlexAccount | None = None
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                account = MyPlexAccount(token=token)
+                if not account.email:
+                    raise ValueError("Plex account email not available")
+                break
+            except Exception as e:
+                logging.warning(
+                    f"Plex account validation attempt {attempt + 1} failed: {e}"
+                )
+                if attempt == max_retries - 1:
+                    raise PlexInvitationError(
+                        f"Failed to validate Plex account: {str(e)}"
+                    ) from e
+                time.sleep(1)  # Brief delay before retry
+
+        # Type guard: ensure account is not None after retry loop
+        if account is None:
+            raise PlexInvitationError("Failed to create Plex account instance")
+
+        email = account.email
+        username = getattr(
+            account, "username", email.split("@")[0] if email else "unknown"
+        )
+
+        # Validate invitation
         inv = Invitation.query.filter_by(code=code).first()
-        # Use the new multi-server relationship instead of legacy server
+        if not inv:
+            raise ValueError(f"Invitation not found: {code}")
+
+        # Check if invitation is still valid
+        from app.services.invites import is_invite_valid
+
+        valid, msg = is_invite_valid(code)
+        if not valid:
+            raise PlexInvitationError(f"Invitation no longer valid: {msg}")
+
+        # Determine server with better error handling
+        server = None
         if inv and inv.servers:
             # Get the first Plex server from the invitation's server list
             plex_servers = [s for s in inv.servers if s.server_type == "plex"]
@@ -979,43 +1039,84 @@ def handle_oauth_token(app, token: str, code: str) -> None:
         else:
             # Last resort fallback
             server = MediaServer.query.first()
+
         if not server:
-            raise ValueError("No media server found")
+            raise ValueError("No media server configured")
+        if server.server_type != "plex":
+            raise ValueError(f"Server {server.name} is not a Plex server")
+
         server_id = server.id
 
-        db.session.query(User).filter(
-            User.email == email, User.server_id == server_id
-        ).delete(synchronize_session=False)
-        db.session.commit()
+        # Use database transaction for atomicity
+        try:
+            # Remove existing user with same email on this server
+            existing_count = (
+                db.session.query(User)
+                .filter(User.email == email, User.server_id == server_id)
+                .delete(synchronize_session=False)
+            )
 
-        from app.services.expiry import calculate_user_expiry
+            if existing_count > 0:
+                logging.info(
+                    f"Removed {existing_count} existing user(s) for {email} on server {server_id}"
+                )
 
-        expires = calculate_user_expiry(inv, server_id) if inv else None
+            from app.services.expiry import calculate_user_expiry
 
-        client = PlexClient(media_server=server)
-        new_user = client._create_user_with_identity_linking(
-            {
-                "token": token,
-                "email": email,
-                "username": account.username,
-                "code": code,
-                "expires": expires,
-                "server_id": server_id,
-            }
-        )
-        db.session.commit()
+            expires = calculate_user_expiry(inv, server_id) if inv else None
 
-        _invite_user(email, code, new_user.id, server)
+            # Create user with error handling
+            client = PlexClient(media_server=server)
+            new_user = client._create_user_with_identity_linking(
+                {
+                    "token": token,
+                    "email": email,
+                    "username": username,
+                    "code": code,
+                    "expires": expires,
+                    "server_id": server_id,
+                }
+            )
+
+            # Commit user creation
+            db.session.commit()
+            logging.info(f"Created user {username} ({email}) for invitation {code}")
+
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            logging.error(f"Database error during user creation: {e}")
+            raise PlexInvitationError("Failed to create user account") from e
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error creating user: {e}")
+            raise PlexInvitationError(f"Failed to create user: {str(e)}") from e
+
+        # Invite user to Plex server with error handling
+        try:
+            _invite_user(email, code, new_user.id, server)
+            logging.info(f"Successfully invited user {username} to Plex server")
+        except Exception as e:
+            logging.error(f"Failed to invite user to Plex: {e}")
+            # Don't fail the entire process if invitation fails
+            # The user account was created successfully
 
         # Mark invitation as used for this server
-        if inv:
-            from app.services.invites import mark_server_used
+        try:
+            if inv:
+                from app.services.invites import mark_server_used
 
-            mark_server_used(inv, server_id, new_user)
+                mark_server_used(inv, server_id, new_user)
+                logging.info(f"Marked invitation {code} as used for server {server_id}")
+        except Exception as e:
+            logging.error(f"Failed to mark invitation as used: {e}")
+            # Don't fail the process if marking fails
 
-        notify(
-            "User Joined", f"User {account.username} has joined your server!", "tada"
-        )
+        # Send notification
+        try:
+            notify("User Joined", f"User {username} has joined your server!", "tada")
+        except Exception as e:
+            logging.warning(f"Failed to send notification: {e}")
+            # Don't fail the process if notification fails
 
         # Pass only what we need: server credentials and Flask app instance
         # Use the specific server that was determined for this invitation

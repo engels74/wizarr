@@ -1,41 +1,66 @@
 {# templates/wizard/steps.html #}
+{# Modern redesigned wizard steps template using shared components #}
+
 <div id="wizard-wrapper"
-     class="min-h-screen flex flex-col justify-center items-center
-            px-4 py-8 animate__animated
+     class="min-h-screen flex flex-col justify-center items-center px-4 py-8 animate__animated
             {% if direction == 'prev' %} animate__fadeInLeft
             {% elif direction == 'next' %} animate__fadeInRight
-            {% endif %}">
+            {% endif %}"
+     role="main"
+     aria-label="Wizard step {{ idx + 1 }} of {{ max_idx + 1 }}">
 
-  <!-- CARD -->
-  <div class="p-6 max-w-md w-full
-              bg-white border border-gray-200 rounded-lg shadow-md
-              dark:bg-gray-800 dark:border-gray-700">
-
-      <!-- Typography helpers -->
-      <div class="prose prose-slate dark:prose-invert
-                  text-gray-800 dark:text-gray-200 max-w-none">
-          {{ body_html|safe }}
-      </div>
+  <!-- Progress Tracker -->
+  <div class="wizard-progress-container mb-8 w-full max-w-2xl">
+    {% include "components/wizard_progress_tracker.html" with context %}
   </div>
 
-  <!-- NAV BUTTONS -->
-  <div class="flex justify-center space-x-4 mt-6">
-      <a  hx-get="{{ url_for('wizard.step', server=server_type, idx=idx-1) }}"
-          hx-vals='{"dir":"prev"}'
-          hx-target="#wizard-wrapper" hx-swap="outerHTML"
-          class="btn-nav"
-          {% if idx == 0 %}style="display:none"{% endif %}>
-          ‹ {{ _("Previous") }}
-      </a>
+  <!-- Wizard Card -->
+  <div class="wizard-card-container w-full max-w-2xl">
+    {% include "components/wizard_card.html" with context %}
+  </div>
 
-      <a  id="next-btn"
-          hx-get="{{ url_for('wizard.step', server=server_type, idx=idx+1) }}"
-          hx-vals='{"dir":"next"}'
-          hx-target="#wizard-wrapper" hx-swap="outerHTML"
-          class="btn-nav"
-          {% if idx == max_idx %}style="display:none"{% endif %}{% if require_interaction %} aria-disabled="true" data-disabled="1" title="{{ _('Click the link in this step to be able to continue') }}"{% endif %}>
-          {{ _("Next") }} ›
-      </a>
+  <!-- Navigation -->
+  <div class="wizard-navigation-container w-full max-w-2xl">
+    {% set prev_url = prev_url if idx > 0 else none %}
+    {% set next_url = next_url if idx < max_idx else none %}
+    {% set complete_url = url_for('public.pre_wizard_complete') if server_type == 'pre' else url_for('public.post_wizard_complete') if server_type == 'post' else '/wizard/complete' %}
+    {% set completion_text = "Continue to invite" if server_type == 'pre' else "Complete Setup" %}
+
+    {% include "components/wizard_navigation.html" with context %}
   </div>
 
 </div>
+
+{% if require_interaction %}
+<script>
+// Enable completion button when interaction occurs (reuse existing wizard-steps.js logic)
+document.addEventListener('DOMContentLoaded', function() {
+    const completeBtn = document.getElementById('complete-btn');
+    if (completeBtn && completeBtn.hasAttribute('data-disabled')) {
+        // Find content area to listen for clicks
+        const content = document.querySelector('.prose');
+        if (content) {
+            content.addEventListener('click', function() {
+                // Enable the completion button
+                completeBtn.removeAttribute('aria-disabled');
+                completeBtn.removeAttribute('data-disabled');
+                completeBtn.style.pointerEvents = '';
+                completeBtn.style.opacity = '';
+
+                // Remove tooltip attributes when button is enabled
+                completeBtn.removeAttribute('data-popover-target');
+                completeBtn.removeAttribute('data-popover-placement');
+                completeBtn.removeAttribute('aria-describedby');
+                completeBtn.removeAttribute('title');
+
+                // Hide the tooltip if it exists
+                const tooltip = document.getElementById('complete-btn-tooltip');
+                if (tooltip) {
+                    tooltip.style.display = 'none';
+                }
+            }, { once: true });
+        }
+    }
+});
+</script>
+{% endif %}

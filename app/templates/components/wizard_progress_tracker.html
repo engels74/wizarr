@@ -1,0 +1,129 @@
+{# components/wizard_progress_tracker.html #}
+{# 
+Modern, accessible progress tracker component for wizard steps.
+Reusable across all wizard flows (preview, actual wizard, pre/post steps).
+
+Parameters:
+- current_step: Current step number (0-based)
+- total_steps: Total number of steps
+- phase: Current phase ('pre', 'post', 'join')
+- phase_title: Human-readable phase title
+- step_description: Optional step description
+- show_phase_breakdown: Whether to show detailed phase breakdown (default: false)
+- pre_steps_count: Number of pre-invite steps (for breakdown)
+- post_steps_count: Number of post-invite steps (for breakdown)
+#}
+
+{# Set defaults and map wizard context variables #}
+{% set current_step = current_step|default(idx|default(0)) %}
+{% set total_steps = total_steps|default(max_idx + 1 if max_idx is defined else 1) %}
+{% set phase = phase|default('post') %}
+{% set phase_title = phase_title|default('Wizard Step') %}
+{% set show_phase_breakdown = show_phase_breakdown|default(false) %}
+{% set step_description = step_description|default('') %}
+
+<div class="wizard-progress-tracker"
+     role="progressbar"
+     aria-valuenow="{{ current_step + 1 }}"
+     aria-valuemin="1"
+     aria-valuemax="{{ total_steps }}"
+     aria-label="Wizard progress: step {{ current_step + 1 }} of {{ total_steps }}">
+  
+  <!-- Step Counter -->
+  <div class="wizard-step-counter text-center mb-4">
+    <div class="text-sm font-medium text-gray-600 dark:text-gray-400">
+      Step {{ current_step + 1 }} of {{ total_steps }}
+      {% if show_phase_breakdown and total_steps > 1 %}
+        <span class="text-xs text-gray-500 dark:text-gray-500">
+          ({{ pre_steps_count }} pre + 1 join + {{ post_steps_count }} post)
+        </span>
+      {% endif %}
+    </div>
+    
+    <!-- Phase Badge -->
+    {% if phase %}
+    <div class="mt-2">
+      <span class="wizard-phase-badge wizard-phase-badge-{{ phase }} phase-{{ phase }}"
+            aria-label="Current phase: {{ phase_title }}">
+        {{ phase_title }}
+      </span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="wizard-progress-bar-container w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4 overflow-hidden"
+       aria-hidden="true">
+    <div class="wizard-progress-bar h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300 ease-out"
+         style="width: {{ ((current_step + 1) / total_steps * 100) | round(1) }}%">
+    </div>
+  </div>
+
+  <!-- Step Description -->
+  {% if step_description %}
+  <div class="wizard-step-description text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+    {{ step_description }}
+  </div>
+  {% endif %}
+</div>
+
+<style>
+/* Modern wizard progress tracker styles */
+.wizard-progress-tracker {
+  @apply w-full max-w-md mx-auto;
+}
+
+.wizard-step-counter {
+  @apply text-center mb-4;
+}
+
+.wizard-phase-badge {
+  @apply inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+}
+
+.wizard-phase-badge-pre {
+  @apply bg-amber-100 text-amber-800 border border-amber-200;
+}
+
+.wizard-phase-badge-post {
+  @apply bg-emerald-100 text-emerald-800 border border-emerald-200;
+}
+
+.wizard-phase-badge-join {
+  @apply bg-blue-100 text-blue-800 border border-blue-200;
+}
+
+/* Dark mode variants */
+.dark .wizard-phase-badge-pre {
+  @apply bg-amber-900/30 text-amber-300 border-amber-700;
+}
+
+.dark .wizard-phase-badge-post {
+  @apply bg-emerald-900/30 text-emerald-300 border-emerald-700;
+}
+
+.dark .wizard-phase-badge-join {
+  @apply bg-blue-900/30 text-blue-300 border-blue-700;
+}
+
+.wizard-progress-bar-container {
+  @apply relative overflow-hidden;
+}
+
+.wizard-progress-bar {
+  @apply transition-all duration-300 ease-out;
+  background: linear-gradient(90deg, var(--color-blue-primary) 0%, var(--color-blue-secondary) 100%);
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .wizard-progress-bar {
+    transition: none;
+  }
+}
+
+/* Focus indicators for keyboard navigation */
+.wizard-progress-tracker:focus-within {
+  @apply outline-2 outline-blue-500 outline-offset-2;
+}
+</style>

@@ -1,0 +1,19 @@
+{# templates/wizard/progress_indicator.html #}
+{# Modern progress indicator with accessibility features #}
+<div class="wizard-progress-indicator"
+     role="progressbar"
+     aria-valuenow="{{ current_step + 1 }}"
+     aria-valuemin="1"
+     aria-valuemax="{{ total_steps }}"
+     aria-label="Wizard progress: step {{ current_step + 1 }} of {{ total_steps }}">
+  <div class="text-sm font-medium text-gray-600 dark:text-gray-400 text-center mb-2">
+    Step {{ current_step + 1 }} of {{ total_steps }}
+    <span class="wizard-phase-badge wizard-phase-badge-{{ phase }} ml-2">{{ phase_title }}</span>
+  </div>
+  <div class="wizard-progress-bar-container w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+    <div class="wizard-progress-bar h-full rounded-full" style="width: {{ progress_percentage | round(1) }}%"></div>
+  </div>
+  {% if step_description %}
+  <div class="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">{{ step_description }}</div>
+  {% endif %}
+</div>

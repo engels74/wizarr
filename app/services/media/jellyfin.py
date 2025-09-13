@@ -435,9 +435,10 @@ class JellyfinClient(RestApiMixin):
             allow_live_tv = bool(getattr(inv, "allow_live_tv", False))
 
             if server_id:
+                from app.extensions import db
                 from app.models import MediaServer
 
-                current_server = MediaServer.query.get(server_id)
+                current_server = db.session.get(MediaServer, server_id)
                 if current_server:
                     if not allow_downloads:
                         allow_downloads = bool(

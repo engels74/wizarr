@@ -26,7 +26,6 @@ from .wizard_admin.routes import wizard_admin_bp
 
 all_blueprints = (
     public_bp,
-    wizard_bp,
     admin_bp,
     auth_bp,
     settings_bp,
@@ -43,6 +42,7 @@ all_blueprints = (
     status_bp,
     api_keys_bp,
     media_servers_bp,
+    wizard_bp,
     wizard_admin_bp,
     admin_accounts_bp,
     webauthn_bp,

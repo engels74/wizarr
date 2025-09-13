@@ -128,6 +128,52 @@ Welcome to our **media server**! Here's what you need to know:
 - **Images**: Use standard Markdown syntax with optional classes
 - **Tailwind classes**: Add `{.class-name}` for custom styling
 
+#### Button Styling System
+
+Wizarr provides a comprehensive button styling system for wizard step markdown. Use the `{.btn}` class to transform links into beautiful, accessible buttons.
+
+**Basic Button Usage:**
+```markdown
+[Download App](https://example.com/download){.btn}
+```
+
+**Button Variants:**
+- **Primary (default)**: `{.btn}` - Blue gradient with hover effects
+- **Secondary**: `{.btn .btn-secondary}` - White/gray with border
+- **Outline**: `{.btn .btn-outline}` - Transparent with colored border
+- **Ghost**: `{.btn .btn-ghost}` - Transparent with subtle hover
+
+**Button Sizes:**
+- **Small**: `{.btn .btn-sm}` - Compact size for secondary actions
+- **Default**: `{.btn}` - Standard size for most use cases
+- **Large**: `{.btn .btn-lg}` - Prominent size for primary actions
+
+**Complete Example:**
+```markdown
+# Download Your App
+
+Choose your platform and get started:
+
+[📱 Download for iOS](https://apps.apple.com/app/plex/id383457673){:target="_blank" .btn .btn-lg}
+[🤖 Download for Android](https://play.google.com/store/apps/details?id=com.plexapp.android){:target="_blank" .btn .btn-lg}
+[💻 Download for Windows](https://www.plex.tv/downloads){:target="_blank" .btn .btn-secondary}
+
+[Need Help?](https://support.example.com){.btn .btn-ghost .btn-sm}
+```
+
+**Accessibility Features:**
+- Full keyboard navigation support
+- Screen reader compatible
+- WCAG 2.1 AA compliant color contrast
+- Focus indicators for keyboard users
+- Semantic link structure maintained
+
+**Responsive Design:**
+- Mobile-first responsive design
+- Touch-friendly button sizes on mobile
+- Consistent appearance across devices
+- Reduced motion support for accessibility
+
 ### Requiring User Interaction
 
 You can force users to engage with step content before allowing them to proceed to the next step. This is useful for ensuring users actually download apps, read important information, or acknowledge terms.

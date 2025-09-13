@@ -95,7 +95,7 @@ def create_api_key():
 @login_required
 def delete_api_key(key_id):
     """Delete an API key."""
-    api_key = ApiKey.query.get_or_404(key_id)
+    api_key = db.get_or_404(ApiKey, key_id)
 
     # Soft delete by marking as inactive
     api_key.is_active = False

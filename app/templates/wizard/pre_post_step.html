@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block head %}
+{{ super() }}
+{# Modern wizard styling is now handled by shared components and main CSS #}
+{% endblock %}
+
+{% block main %}
+<div class="min-h-screen flex flex-col justify-center items-center px-4 py-8">
+    <!-- Progress Tracker -->
+    <div class="wizard-progress-container mb-8 w-full max-w-2xl">
+        {% set current_step = current_index %}
+        {% set phase_title = "Before You Join" if phase == 'pre' else "Welcome! Let's Get Started" %}
+        {% include "components/wizard_progress_tracker.html" with context %}
+    </div>
+
+    <!-- Wizard Card -->
+    <div class="wizard-card-container w-full max-w-2xl">
+        {% set content = body_html %}
+        {% set title = step.title if step and step.title else none %}
+        {% set require_interaction = step.require_interaction if step else false %}
+        {% include "components/wizard_card.html" with context %}
+    </div>
+
+    <!-- Navigation -->
+    <div class="wizard-navigation-container w-full max-w-2xl mt-6">
+        {% set prev_url = "?step=" + (current_index - 1)|string if current_index > 0 else none %}
+        {% set next_url = "?step=" + (current_index + 1)|string if current_index < total_steps - 1 else none %}
+        {% set complete_url = url_for('public.join_accept') if phase == 'pre' else url_for('public.root') %}
+        {% set completion_text = "Accept Invitation" if phase == 'pre' else "Complete Setup" %}
+        {% set require_interaction = step.require_interaction if step else false %}
+
+        {% include "components/wizard_navigation.html" with context %}
+    </div>
+</div>
+
+{% if step.require_interaction %}
+<script>
+function enableContinue() {
+    const interactionBtn = document.getElementById('interaction-btn');
+    const continueBtn = document.getElementById('continue-btn');
+
+    if (interactionBtn && continueBtn) {
+        interactionBtn.style.display = 'none';
+        continueBtn.style.display = 'inline-block';
+    }
+}
+</script>
+{% endif %}
+{% endblock %}
