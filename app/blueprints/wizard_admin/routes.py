@@ -56,21 +56,26 @@ def _strip_localization(md: str) -> str:
 @wizard_admin_bp.route("/", methods=["GET"])
 @login_required
 def list_steps():
-    # Group steps by server_type for display
+    # Group steps by server_type and timing for display
     rows = (
         # Exclude custom steps (managed via Wizard Bundles) from the default view
         WizardStep.query.filter(WizardStep.server_type != "custom")
-        .order_by(WizardStep.server_type, WizardStep.position)
+        .order_by(WizardStep.server_type, WizardStep.timing, WizardStep.position)
         .all()
     )
-    grouped: dict[str, list[WizardStep]] = {}
+
+    # Group by server_type, then by timing
+    grouped: dict[str, dict[str, list[WizardStep]]] = {}
     for row in rows:
-        grouped.setdefault(row.server_type, []).append(row)
+        server_group = grouped.setdefault(row.server_type, {})
+        timing_group = server_group.setdefault(row.timing, [])
+        timing_group.append(row)
 
     # Filter: show only servers that are currently configured/enabled
     active_types = {srv.server_type for srv in MediaServer.query.all()}
     grouped = {
-        stype: steps for stype, steps in grouped.items() if stype in active_types
+        stype: timing_groups for stype, timing_groups in grouped.items()
+        if stype in active_types
     }
 
     # When requested via HTMX we return only the inner fragment that is meant

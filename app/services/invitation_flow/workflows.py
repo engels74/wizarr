@@ -165,15 +165,32 @@ class InvitationWorkflow(ABC):
             status = ProcessingStatus.PARTIAL_SUCCESS
             message = f"Accounts created on {len(successful)} of {len(successful) + len(failed)} servers"
 
+        # Check if there are post-invite wizard steps
+        from app.services.wizard_timing import get_post_invite_steps_for_invitation
+        from app.models import Invitation
+        from sqlalchemy import func
+
+        invitation = Invitation.query.filter(
+            func.lower(Invitation.code) == invitation_code.lower()
+        ).first()
+
+        # Determine redirect URL based on post-invite steps
+        redirect_url = "/wizard/post-wizard"
+        if invitation and get_post_invite_steps_for_invitation(invitation):
+            redirect_url = "/wizard/post-wizard"
+        else:
+            # No post-invite steps, redirect to completion or dashboard
+            redirect_url = "/"
+
         return InvitationResult(
             status=status,
             message=message,
             successful_servers=successful,
             failed_servers=failed,
-            redirect_url="/wizard/",
+            redirect_url=redirect_url,
             session_data={
                 "wizard_access": invitation_code,
-                "invitation_in_progress": True,
+                "invitation_completed": True,
             },
         )
 

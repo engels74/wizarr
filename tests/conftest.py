@@ -38,3 +38,16 @@ def client(app):
 @pytest.fixture
 def runner(app):
     return app.test_cli_runner()
+
+
+@pytest.fixture
+def session(app):
+    """Provide a database session for tests."""
+    with app.app_context():
+        # Clean up any existing data before each test
+        from app.models import WizardStep
+        WizardStep.query.delete()
+        db.session.commit()
+        yield db.session
+        # Clean up after each test
+        db.session.rollback()

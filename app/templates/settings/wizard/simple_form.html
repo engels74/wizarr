@@ -7,6 +7,14 @@
   <form method="post" class="space-y-4">
 
     <div>
+      {{ form.timing.label(class="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300") }}
+      {{ form.timing(class="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600") }}
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        Choose when this step should be shown to users during the invitation process.
+      </p>
+    </div>
+
+    <div>
       {{ form.title.label(class="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300") }}
       {{ form.title(class="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600") }}
     </div>

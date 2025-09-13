@@ -53,6 +53,34 @@ class InvitationFlowManager:
                 func.lower(Invitation.code) == code.lower()
             ).first()
 
+            if not invitation:
+                return InvitationResult(
+                    status=ProcessingStatus.INVALID_INVITATION,
+                    message="Invitation not found",
+                    successful_servers=[],
+                    failed_servers=[],
+                    template_data={
+                        "template_name": "invalid-invite.html",
+                        "error": "Invitation not found",
+                    },
+                )
+
+            # Check for pre-invite wizard steps
+            from app.services.wizard_timing import has_pre_invite_steps_for_invitation
+            from flask import session
+
+            if has_pre_invite_steps_for_invitation(invitation):
+                # Check if pre-wizard was already completed
+                if not session.get("pre_wizard_completed"):
+                    # Redirect to pre-wizard
+                    return InvitationResult(
+                        status=ProcessingStatus.REDIRECT_REQUIRED,
+                        message="Redirecting to pre-invitation setup",
+                        redirect_url=f"/wizard/pre-wizard/{code}",
+                        successful_servers=[],
+                        failed_servers=[],
+                    )
+
             servers = self._get_invitation_servers(invitation)
 
             # Create appropriate workflow and show initial template
@@ -85,6 +113,9 @@ class InvitationFlowManager:
             invitation = Invitation.query.filter(
                 func.lower(Invitation.code) == code.lower()
             ).first()
+
+            if not invitation:
+                return self._create_error_result("Invitation not found")
 
             servers = self._get_invitation_servers(invitation)
 
@@ -123,8 +154,10 @@ class InvitationFlowManager:
                 servers = [default_server]
 
         # Ensure Plex servers are first for mixed workflows
-        plex_servers = [s for s in servers if s.server_type == "plex"]
-        other_servers = [s for s in servers if s.server_type != "plex"]
+        from typing import cast
+        servers_typed = cast(list[MediaServer], servers)
+        plex_servers = [s for s in servers_typed if s.server_type == "plex"]
+        other_servers = [s for s in servers_typed if s.server_type != "plex"]
 
         return plex_servers + other_servers
 

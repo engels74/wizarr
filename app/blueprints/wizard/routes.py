@@ -170,30 +170,8 @@ def _steps(server: str, cfg: dict):
         db_rows = []  # table may not exist during migrations/tests
 
     if db_rows:
-
-        class _RowAdapter:
-            """Lightweight shim exposing the subset of frontmatter.Post API
-            used by helper functions: `.content` property and `.get()`.
-            """
-
-            __slots__ = ("content", "_require")
-
-            def __init__(self, row: "WizardStep"):
-                self.content = row.markdown
-                # Mirror frontmatter key `require` from DB boolean
-                self._require = bool(getattr(row, "require_interaction", False))
-
-            # frontmatter.Post.get(key, default)
-            def get(self, key, default=None):
-                if key == "require":
-                    return self._require
-                return default
-
-            def __iter__(self):
-                """Make _RowAdapter iterable for compatibility."""
-                return iter([self])
-
-        steps = [_RowAdapter(r) for r in db_rows]
+        from app.utils.wizard_rendering import adapt_wizard_steps
+        steps = adapt_wizard_steps(db_rows)
         if steps:
             return steps
 
@@ -379,19 +357,8 @@ def bundle_view(idx: int):
     steps_raw = [r.step for r in ordered]
 
     # adapt to frontmatter-like interface
-    class _RowAdapter:
-        __slots__ = ("content", "_require")
-
-        def __init__(self, row: WizardStep):
-            self.content = row.markdown
-            self._require = bool(getattr(row, "require_interaction", False))
-
-        def get(self, key, default=None):
-            if key == "require":
-                return self._require
-            return default
-
-    steps = [_RowAdapter(s) for s in steps_raw]
+    from app.utils.wizard_rendering import adapt_wizard_steps
+    steps = adapt_wizard_steps(steps_raw)
     if not steps:
         abort(404)
 
@@ -424,4 +391,200 @@ def bundle_view(idx: int):
         server_type="bundle",
         direction=request.values.get("dir", ""),
         require_interaction=require_interaction,
+    )
+
+
+# ─── pre-wizard routes for before invite acceptance ─────────────────────────
+@wizard_bp.route("/pre-wizard/<code>")
+def pre_wizard_start(code):
+    """Entry point for pre-invite wizard steps."""
+    from app.services.wizard_timing import get_pre_invite_steps_for_invitation
+    from sqlalchemy import func
+
+    # Get invitation
+    invitation = Invitation.query.filter(
+        func.lower(Invitation.code) == code.lower()
+    ).first()
+
+    if not invitation:
+        abort(404)
+
+    # Get pre-invite steps
+    steps = get_pre_invite_steps_for_invitation(invitation)
+    if not steps:
+        # No pre-invite steps, redirect to main invitation page
+        return redirect(url_for("public.invite", code=code))
+
+    # Store invitation code in session for clean URLs
+    session["invite_code"] = code
+    session["current_pre_wizard_step"] = 0
+
+    return _render_timing_wizard_step(code, 0, "before_invite_acceptance")
+
+
+@wizard_bp.route("/pre-wizard/<code>/<int:idx>")
+def pre_wizard_step(code, idx):
+    """Individual pre-invite wizard step."""
+    return _render_timing_wizard_step(code, idx, "before_invite_acceptance")
+
+
+@wizard_bp.route("/pre-wizard/<code>/complete", methods=["POST"])
+def pre_wizard_complete(code):
+    """Complete pre-wizard and redirect to invitation page."""
+    session["pre_wizard_completed"] = True
+    session["current_pre_wizard_step"] = None
+
+    # Redirect to invitation page
+    return redirect(url_for("public.invite", code=code))
+
+
+# ─── post-wizard routes for after invite acceptance ─────────────────────────
+@wizard_bp.route("/post-wizard")
+def post_wizard_start():
+    """Entry point for post-invite wizard steps."""
+    # Check session for wizard access
+    inv_code = session.get("wizard_access")
+    if not inv_code:
+        return redirect("/")
+
+    return _render_post_wizard_step(0)
+
+
+@wizard_bp.route("/post-wizard/<int:idx>")
+def post_wizard_step(idx):
+    """Individual post-invite wizard step."""
+    return _render_post_wizard_step(idx)
+
+
+@wizard_bp.route("/post-wizard/complete", methods=["POST"])
+def post_wizard_complete():
+    """Complete post-wizard and redirect to completion page."""
+    # Clear wizard session data
+    session.pop("wizard_access", None)
+    session.pop("invitation_completed", None)
+
+    # Redirect to completion page or dashboard
+    return redirect("/")
+
+
+# ─── helper functions for timing-based wizard rendering ─────────────────────
+def _render_timing_wizard_step(code: str, idx: int, timing: str):
+    """Render a wizard step for a specific timing (pre or post invite)."""
+    from app.services.wizard_timing import get_pre_invite_steps_for_invitation, get_post_invite_steps_for_invitation
+    from sqlalchemy import func
+
+    # Get invitation
+    invitation = Invitation.query.filter(
+        func.lower(Invitation.code) == code.lower()
+    ).first()
+
+    if not invitation:
+        abort(404)
+
+    # Get steps based on timing
+    if timing == "before_invite_acceptance":
+        steps_raw = get_pre_invite_steps_for_invitation(invitation)
+        template_prefix = "pre-invite"
+    else:
+        steps_raw = get_post_invite_steps_for_invitation(invitation)
+        template_prefix = "post-invite"
+
+    if not steps_raw:
+        abort(404)
+
+    # Convert to adapter format for compatibility with existing rendering
+    from app.utils.wizard_rendering import adapt_wizard_steps
+    steps = adapt_wizard_steps(steps_raw)
+    idx = max(0, min(idx, len(steps) - 1))
+
+    # Update session with current step
+    if timing == "before_invite_acceptance":
+        session["current_pre_wizard_step"] = idx
+
+    # Render step
+    post = steps[idx]
+    current_server_type = steps_raw[idx].server_type if idx < len(steps_raw) else None
+    html = _render(post, _settings() | {"_": _}, server_type=current_server_type)
+
+    # Check interaction requirement
+    require_interaction = False
+    try:
+        require_interaction = bool(
+            getattr(post, "get", lambda k, d=None: None)("require", False)
+        )
+    except Exception:
+        require_interaction = False
+
+    # Choose template based on request type
+    if not request.headers.get("HX-Request"):
+        page = f"wizard/{template_prefix}-frame.html"
+    else:
+        page = f"wizard/{template_prefix}-steps.html"
+
+    return render_template(
+        page,
+        body_html=html,
+        idx=idx,
+        max_idx=len(steps) - 1,
+        server_type=current_server_type,
+        direction=request.values.get("dir", ""),
+        require_interaction=require_interaction,
+        code=code,
+        timing=timing,
+    )
+
+
+def _render_post_wizard_step(idx: int):
+    """Render a post-invite wizard step."""
+    from app.services.wizard_timing import get_post_invite_steps_for_invitation
+
+    # Get invitation from session
+    inv_code = session.get("wizard_access")
+    if not inv_code:
+        abort(403)
+
+    invitation = Invitation.query.filter_by(code=inv_code).first()
+    if not invitation:
+        abort(404)
+
+    # Get post-invite steps
+    steps_raw = get_post_invite_steps_for_invitation(invitation)
+    if not steps_raw:
+        # No post-invite steps, redirect to completion
+        return redirect("/")
+
+    # Convert to adapter format
+    from app.utils.wizard_rendering import adapt_wizard_steps
+    steps = adapt_wizard_steps(steps_raw)
+    idx = max(0, min(idx, len(steps) - 1))
+
+    # Render step
+    post = steps[idx]
+    current_server_type = steps_raw[idx].server_type if idx < len(steps_raw) else None
+    html = _render(post, _settings() | {"_": _}, server_type=current_server_type)
+
+    # Check interaction requirement
+    require_interaction = False
+    try:
+        require_interaction = bool(
+            getattr(post, "get", lambda k, d=None: None)("require", False)
+        )
+    except Exception:
+        require_interaction = False
+
+    # Choose template
+    if not request.headers.get("HX-Request"):
+        page = "wizard/post-invite-frame.html"
+    else:
+        page = "wizard/post-invite-steps.html"
+
+    return render_template(
+        page,
+        body_html=html,
+        idx=idx,
+        max_idx=len(steps) - 1,
+        server_type=current_server_type,
+        direction=request.values.get("dir", ""),
+        require_interaction=require_interaction,
+        timing="after_invite_acceptance",
     )

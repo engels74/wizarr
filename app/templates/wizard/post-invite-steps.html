@@ -1,0 +1,115 @@
+{# templates/wizard/post-invite-steps.html #}
+<div id="wizard-wrapper"
+     class="min-h-screen flex flex-col justify-center items-center
+            px-4 py-8 animate__animated
+            {% if direction == 'prev' %} animate__fadeInLeft
+            {% elif direction == 'next' %} animate__fadeInRight
+            {% endif %}">
+
+  <!-- CARD -->
+  <div class="p-6 max-w-md w-full
+              bg-white border border-gray-200 rounded-lg shadow-md
+              dark:bg-gray-800 dark:border-gray-700">
+
+      <!-- Typography helpers -->
+      <div class="prose prose-slate dark:prose-invert
+                  text-gray-800 dark:text-gray-200 max-w-none">
+          {{ body_html|safe }}
+      </div>
+  </div>
+
+  <!-- Progress indicator (for HTMX updates) -->
+  <div class="mt-6 max-w-md w-full">
+    <div class="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+      <span>Step {{ idx + 1 }} of {{ max_idx + 1 }}</span>
+      <span>Account Setup</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-2 mt-2 dark:bg-gray-700">
+      <div class="bg-primary h-2 rounded-full transition-all duration-300" 
+           style="width: {{ ((idx + 1) / (max_idx + 1) * 100) | round }}%"></div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="mt-6 max-w-md w-full">
+    <div class="flex justify-between items-center">
+      
+      <!-- Previous button -->
+      {% if idx > 0 %}
+        <button class="px-4 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                hx-get="{{ url_for('wizard.post_wizard_step', idx=idx-1) }}?dir=prev"
+                hx-target="#wizard-content"
+                hx-swap="innerHTML">
+          <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          Previous
+        </button>
+      {% else %}
+        <div></div>
+      {% endif %}
+
+      <!-- Next/Complete button -->
+      {% if idx < max_idx %}
+        <button class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                {% if require_interaction %}disabled{% endif %}
+                hx-get="{{ url_for('wizard.post_wizard_step', idx=idx+1) }}?dir=next"
+                hx-target="#wizard-content"
+                hx-swap="innerHTML">
+          Next
+          <svg class="w-5 h-5 inline ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+      {% else %}
+        <button class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                {% if require_interaction %}disabled{% endif %}
+                hx-post="{{ url_for('wizard.post_wizard_complete') }}"
+                hx-swap="none">
+          Complete Setup
+          <svg class="w-5 h-5 inline ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </button>
+      {% endif %}
+      
+    </div>
+    
+    <!-- Interaction requirement notice -->
+    {% if require_interaction %}
+      <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800">
+        <p class="text-sm text-yellow-800 dark:text-yellow-200">
+          <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+          Please complete the required action above before continuing.
+        </p>
+      </div>
+    {% endif %}
+    
+  </div>
+
+</div>
+
+<script>
+// Enable interaction tracking for HTMX-loaded content
+(function() {
+  // Track clicks on interactive elements
+  document.addEventListener('click', function(e) {
+    if (e.target.matches('a[href], button:not([hx-get]):not([hx-post])')) {
+      // Mark interaction as completed
+      const nextBtn = document.querySelector('button[hx-get*="idx={{ idx + 1 }}"], button[hx-post*="complete"]');
+      if (nextBtn && nextBtn.disabled) {
+        nextBtn.disabled = false;
+        nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        
+        // Hide interaction notice
+        const notice = document.querySelector('.bg-yellow-50, .dark\\:bg-yellow-900\\/20');
+        if (notice) {
+          notice.style.display = 'none';
+        }
+      }
+    }
+  });
+})();
+</script>
