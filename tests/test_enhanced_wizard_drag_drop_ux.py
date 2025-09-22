@@ -386,11 +386,9 @@ class TestJavaScriptEnhancements:
 
         response_text = response.data.decode("utf-8")
 
-        # Check that inline JavaScript functions are included
-        assert "function handleDragEnd(to, from, item)" in response_text
-
-        # Check for sortable containers
+        # Inline JavaScript moved to external wizard-steps.js; ensure sortable containers exist instead
         assert "wizard-steps" in response_text
+        assert "drop-zone" in response_text
 
     def test_drag_feedback_javascript_hooks(self, authenticated_client, mixed_setup):
         """Test that JavaScript has hooks for enhanced drag feedback."""

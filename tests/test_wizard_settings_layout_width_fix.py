@@ -122,6 +122,9 @@ class TestWizardSettingsLayoutWidth:
 
         # Verify the grid layout structure exists
         assert "grid grid-cols-1 lg:grid-cols-2" in response_text
+        # New expected responsive gaps: vertical gap on mobile, none on large screens
+        assert "gap-y-6" in response_text
+        assert "lg:gap-y-0" in response_text
         assert server_type in response_text  # Ensure our test server is present
 
         # Check that grid container has proper bounds
@@ -161,15 +164,15 @@ class TestWizardSettingsLayoutWidth:
         assert "phase-section" in response_text
         assert server_type in response_text  # Ensure our test server is present
 
-        # Check that phase sections don't have excessive margin/padding that causes width issues
+        # Check that phase sections don't add bottom margin that causes extra empty space
         phase_section_css_start = response_text.find(".phase-section")
         if phase_section_css_start != -1:
             # Find the CSS block for phase-section
             css_block_end = response_text.find("}", phase_section_css_start)
             css_block = response_text[phase_section_css_start:css_block_end]
 
-            # Verify reasonable margin-bottom but no excessive spacing
-            assert "margin-bottom: 2rem" in css_block or "margin-bottom:" in css_block
+            # The fix: phase-section should not set margin-bottom; vertical spacing is handled by grid gap
+            assert "margin-bottom" not in css_block
 
     def test_server_section_container_bounds(
         self, authenticated_client, plex_server_with_steps
@@ -218,8 +221,9 @@ class TestWizardSettingsLayoutWidth:
         # Look for any problematic CSS patterns
 
         # The grid container should end properly after the phase sections
-        grid_pattern = 'class="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:divide-x'
-        assert grid_pattern in response_text
+        grid_pattern_mobile = 'class="grid grid-cols-1 lg:grid-cols-2 gap-y-6'
+        assert grid_pattern_mobile in response_text
+        assert 'lg:gap-y-0' in response_text
 
     def test_responsive_layout_maintains_bounds(
         self, authenticated_client, plex_server_with_steps
@@ -286,15 +290,8 @@ class TestWizardSettingsLayoutWidth:
             phase_css_end = css_section.find("}", phase_css_start)
             phase_css_block = css_section[phase_css_start:phase_css_end]
 
-            # Should have margin-bottom but not excessive
-            if "margin-bottom" in phase_css_block:
-                # Extract the value to ensure it's reasonable (like 2rem, not 10rem)
-                margin_part = phase_css_block[phase_css_block.find("margin-bottom:") :]
-                margin_line = margin_part[: margin_part.find(";")]
-                # Should not have excessive margin values
-                assert not any(
-                    excessive in margin_line for excessive in ["10rem", "5rem", "100px"]
-                )
+            # The fix: phase-section should not define bottom margin; grid gaps handle spacing
+            assert "margin-bottom" not in phase_css_block
 
     def test_no_double_spacing_on_server_sections(
         self, authenticated_client, plex_server_with_steps
