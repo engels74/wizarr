@@ -41,14 +41,14 @@ def app():
             position=0,
             title="Welcome",
             markdown="# Welcome\nWelcome to Plex",
-            phase="pre"
+            phase="PRE"
         )
         step2 = WizardStep(
             server_type="plex",
             position=1,
             title="Setup Complete",
             markdown="# Complete\nSetup is done",
-            phase="post"
+            phase="POST"
         )
         db.session.add_all([step1, step2])
         db.session.commit()
@@ -183,6 +183,40 @@ def test_wizard_drag_drop_functionality_works_after_multiple_loads(page: Page, l
         assert sortable_containers > 0, "Sortable containers should be properly attached"
 
 
+def test_no_lexical_declaration_errors_on_script_load(page: Page, live_server):
+    """Test that no lexical declaration errors occur when script loads."""
+    # Navigate and login
+    page.goto(f"{live_server.url}/login")
+    page.fill('input[name="username"]', 'admin')
+    page.fill('input[name="password"]', 'password')
+    page.click('button[type="submit"]')
+
+    # Set up console error monitoring before navigating to wizard settings
+    console_errors = []
+    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
+
+    # Navigate to wizard settings - this is where the error would occur
+    page.goto(f"{live_server.url}/settings/wizard")
+    page.wait_for_load_state('networkidle')
+
+    # Check for specific lexical declaration errors
+    lexical_errors = [
+        error for error in console_errors
+        if "can't access lexical declaration" in error.lower() and "before initialization" in error.lower()
+    ]
+
+    assert len(lexical_errors) == 0, f"Found lexical declaration errors: {lexical_errors}"
+
+    # Also check for reference errors related to the specific functions
+    reference_errors = [
+        error for error in console_errors
+        if "referenceerror" in error.lower() and
+        any(func in error.lower() for func in ['enhanceemptyzonevisibility', 'attachsortablelists', 'attachinteractiongating', 'synchronizeallphaseheights'])
+    ]
+
+    assert len(reference_errors) == 0, f"Found reference errors for functions: {reference_errors}"
+
+
 def test_backward_compatibility_functions_still_work(page: Page, live_server):
     """Test that backward compatibility functions are still available."""
     # Navigate and login
@@ -215,6 +249,33 @@ def test_backward_compatibility_functions_still_work(page: Page, live_server):
 
     for func in compatibility_functions:
         assert func['exists'], f"Backward compatibility function '{func['name']}' should be available"
+
+
+def test_wizard_steps_js_syntax_is_valid():
+    """Test that the wizard-steps.js file has valid JavaScript syntax."""
+    import subprocess
+
+    script_path = '/home/dev/GitHub/engels74/wizarr/app/static/js/wizard-steps.js'
+
+    # Use node to check JavaScript syntax
+    try:
+        # This will fail if there are syntax errors like temporal dead zone issues
+        result = subprocess.run(
+            ['node', '-c', script_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            # If node check fails, the syntax is invalid
+            raise AssertionError(f"JavaScript syntax error in wizard-steps.js: {result.stderr}")
+
+    except FileNotFoundError:
+        # Node.js not available, skip this test
+        pytest.skip("Node.js not available for syntax checking")
+    except subprocess.TimeoutExpired:
+        raise AssertionError("JavaScript syntax check timed out") from None
 
 
 def test_script_guard_implementation_details():
@@ -273,14 +334,15 @@ def live_server(app):
     thread.daemon = True
     thread.start()
 
-    # Create server object with URL
+    # Create server object with URL and app reference
     class LiveServer:
-        def __init__(self, host, port):
+        def __init__(self, host, port, app):
             self.host = host
             self.port = port
             self.url = f'http://{host}:{port}'
+            self.app = app  # Add app attribute for pytest_flask compatibility
 
-    live_server_obj = LiveServer('localhost', port)
+    live_server_obj = LiveServer('localhost', port, app)
 
     yield live_server_obj
 

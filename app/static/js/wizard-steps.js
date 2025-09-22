@@ -335,15 +335,9 @@ class WizardDragDropManager {
 // Global instance
 const wizardDragDrop = new WizardDragDropManager();
 
-// Make class and functions available globally to enable guard check and re-initialization
+// Make class available globally to enable guard check
 window.WizardDragDropManager = WizardDragDropManager;
 window.wizardDragDrop = wizardDragDrop;
-
-// Make functions globally available for re-initialization
-window.attachSortableLists = attachSortableLists;
-window.attachInteractionGating = attachInteractionGating;
-window.enhanceEmptyZoneVisibility = enhanceEmptyZoneVisibility;
-window.synchronizeAllPhaseHeights = synchronizeAllPhaseHeights;
 
 function attachSortableLists(root = document) {
   root.querySelectorAll('.wizard-steps, .bundle-steps').forEach(container => {
@@ -381,6 +375,17 @@ const updateEmptyState = (container) => wizardDragDrop.updateEmptyState(containe
 const closeEditModal = () => wizardDragDrop.closeEditModal();
 const enhanceEmptyZoneVisibility = () => wizardDragDrop.enhanceEmptyZoneVisibility();
 const synchronizeAllPhaseHeights = () => wizardDragDrop.synchronizeAllPhaseHeights();
+
+// Make functions globally available for re-initialization (moved here after function declarations)
+window.attachSortableLists = attachSortableLists;
+window.attachInteractionGating = attachInteractionGating;
+window.enhanceEmptyZoneVisibility = enhanceEmptyZoneVisibility;
+window.synchronizeAllPhaseHeights = synchronizeAllPhaseHeights;
+
+// Make legacy functions globally available for backward compatibility
+window.updateStepPhase = updateStepPhase;
+window.updateEmptyState = updateEmptyState;
+window.closeEditModal = closeEditModal;
 
 // Attach Next-button gating that requires an interaction inside step content
 function attachInteractionGating(root = document) {
