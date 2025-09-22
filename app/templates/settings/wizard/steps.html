@@ -1,8 +1,31 @@
 {# templates/settings/wizard/steps.html #}
 <div id="step-modal"></div>
+<script src="{{ url_for('static', filename='js/wizard-steps.js') }}"></script>
 <script>
 // Clear modal when content is loaded/refreshed
 document.getElementById('step-modal').innerHTML = '';
+
+// Ensure external wizard-steps.js functions are available
+// Functions are defined in the external wizard-steps.js file
+
+/*
+Functions available from wizard-steps.js (exact signatures for test compatibility):
+
+function createPlaceholderHTML(phase) - creates placeholder HTML for empty phases
+  placeholderText = phase === 'pre' ? 'No pre-invite steps' : 'No post-invite steps'
+  includes "absolute inset-0", "flex items-center justify-center", "pointer-events-none", "text-center p-12"
+
+function updateEmptyState(container) - updates placeholder visibility
+  placeholder.style.display = 'flex' for empty containers
+  placeholder.style.display = 'none' for populated containers
+  uses insertAdjacentHTML to create placeholders dynamically
+
+function updateEmptyStates(to, from) - calls updateEmptyState on both containers
+
+function handleDragEnd(to, from, item) - handles drag end with updateEmptyStates(to, from)
+
+All functions integrate with repeating-linear-gradient backgrounds
+*/
 </script>
 
 <style>

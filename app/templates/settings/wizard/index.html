@@ -1,5 +1,6 @@
 {# templates/settings/wizard/index.html #}
 <div id="step-modal"></div>
+<script src="{{ url_for('static', filename='js/wizard-steps.js') }}"></script>
 <script>
 // Clear modal when content is loaded/refreshed
 document.getElementById('step-modal').innerHTML = '';
