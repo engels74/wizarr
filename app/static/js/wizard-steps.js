@@ -1,5 +1,25 @@
 /* wizard.js */
 
+// Script guard to prevent redeclaration errors when script is loaded multiple times
+if (typeof window.WizardDragDropManager !== 'undefined') {
+  // Class already exists, ensure event listeners are still attached for dynamic content
+  console.debug('WizardDragDropManager already loaded, re-initializing for dynamic content');
+
+  // Re-attach functionality for any new content
+  if (typeof window.attachSortableLists === 'function') {
+    window.attachSortableLists();
+  }
+  if (typeof window.attachInteractionGating === 'function') {
+    window.attachInteractionGating();
+  }
+  if (typeof window.enhanceEmptyZoneVisibility === 'function') {
+    window.enhanceEmptyZoneVisibility();
+  }
+  if (typeof window.synchronizeAllPhaseHeights === 'function') {
+    window.synchronizeAllPhaseHeights();
+  }
+} else {
+
 /**
  * Utility class for managing wizard step drag-and-drop functionality
  */
@@ -315,6 +335,16 @@ class WizardDragDropManager {
 // Global instance
 const wizardDragDrop = new WizardDragDropManager();
 
+// Make class and functions available globally to enable guard check and re-initialization
+window.WizardDragDropManager = WizardDragDropManager;
+window.wizardDragDrop = wizardDragDrop;
+
+// Make functions globally available for re-initialization
+window.attachSortableLists = attachSortableLists;
+window.attachInteractionGating = attachInteractionGating;
+window.enhanceEmptyZoneVisibility = enhanceEmptyZoneVisibility;
+window.synchronizeAllPhaseHeights = synchronizeAllPhaseHeights;
+
 function attachSortableLists(root = document) {
   root.querySelectorAll('.wizard-steps, .bundle-steps').forEach(container => {
     if (container.dataset.sortableAttached) return;
@@ -448,3 +478,5 @@ document.body.addEventListener('htmx:load', e => {
   enhanceEmptyZoneVisibility();
   synchronizeAllPhaseHeights();
 });
+
+} // End of script guard
