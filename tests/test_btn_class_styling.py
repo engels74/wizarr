@@ -104,7 +104,7 @@ def sample_wizard_step_with_btn(app):
             phase=WizardPhase.PRE,
             position=0,
             title="Download Step",
-            markdown='[Download Plex](https://www.plex.tv/downloads){target=_blank .btn}\n\n[Secondary Link](https://example.com){.btn .btn-secondary}'
+            markdown="[Download Plex](https://www.plex.tv/downloads){target=_blank .btn}\n\n[Secondary Link](https://example.com){.btn .btn-secondary}",
         )
         db.session.add(step)
         db.session.commit()
@@ -114,7 +114,9 @@ def sample_wizard_step_with_btn(app):
 class TestBtnClassRendering:
     """Test .btn class rendering in different contexts."""
 
-    def test_btn_class_renders_in_wizard_card(self, authenticated_client, sample_wizard_step_with_btn):
+    def test_btn_class_renders_in_wizard_card(
+        self, authenticated_client, sample_wizard_step_with_btn
+    ):
         """Test that .btn class renders properly in wizard card component."""
         response = authenticated_client.get("/settings/wizard/preview/plex")
         assert response.status_code == 200
@@ -125,55 +127,57 @@ class TestBtnClassRendering:
         assert 'class="btn"' in response_text
 
         # Verify button content and attributes
-        assert 'Download Plex' in response_text
+        assert "Download Plex" in response_text
         assert 'href="https://www.plex.tv/downloads"' in response_text
         assert 'target="_blank"' in response_text
 
     def test_btn_class_renders_in_preview_markdown(self, authenticated_client):
         """Test .btn class rendering in markdown preview functionality."""
-        markdown_content = '[Test Button](https://example.com){.btn}'
+        markdown_content = "[Test Button](https://example.com){.btn}"
 
-        response = authenticated_client.post("/settings/wizard/preview", data={
-            "markdown": markdown_content
-        })
+        response = authenticated_client.post(
+            "/settings/wizard/preview", data={"markdown": markdown_content}
+        )
         assert response.status_code == 200
 
         response_text = response.get_data(as_text=True)
 
         # Check that button is rendered with correct class and attributes
         assert 'class="btn"' in response_text
-        assert 'Test Button' in response_text
+        assert "Test Button" in response_text
         assert 'href="https://example.com"' in response_text
 
     def test_btn_class_renders_in_create_edit_forms(self, authenticated_client):
         """Test .btn class rendering in Create/Edit wizard step forms."""
         # Test the form preview functionality
-        markdown_with_btn = '[Create Button](https://test.com){.btn}'
+        markdown_with_btn = "[Create Button](https://test.com){.btn}"
 
-        response = authenticated_client.post("/settings/wizard/preview", data={
-            "markdown": markdown_with_btn
-        })
+        response = authenticated_client.post(
+            "/settings/wizard/preview", data={"markdown": markdown_with_btn}
+        )
         assert response.status_code == 200
 
         response_text = response.get_data(as_text=True)
 
         # Check that button is rendered correctly
         assert 'class="btn"' in response_text
-        assert 'Create Button' in response_text
+        assert "Create Button" in response_text
         assert 'href="https://test.com"' in response_text
 
 
 class TestBtnClassStyling:
     """Test .btn class CSS styling and visual appearance."""
 
-    def test_btn_class_has_proper_css_classes(self, authenticated_client, sample_wizard_step_with_btn):
+    def test_btn_class_has_proper_css_classes(
+        self, authenticated_client, sample_wizard_step_with_btn
+    ):
         """Test that .btn class applies proper TailwindCSS classes."""
         response = authenticated_client.get("/settings/wizard/preview/plex")
         assert response.status_code == 200
 
         # Check that the page includes the main CSS file
         response_text = response.get_data(as_text=True)
-        assert '/static/css/main.css' in response_text
+        assert "/static/css/main.css" in response_text
 
         # Check that buttons are rendered with .btn class
         assert 'class="btn"' in response_text
@@ -181,12 +185,12 @@ class TestBtnClassStyling:
     def test_btn_class_integrates_with_tailwind_patterns(self, authenticated_client):
         """Test that .btn class follows existing TailwindCSS patterns."""
         # Test multiple button variants
-        markdown_content = '''[Primary Button](https://example.com){.btn}
-[Secondary Button](https://example.com){.btn .btn-secondary}'''
+        markdown_content = """[Primary Button](https://example.com){.btn}
+[Secondary Button](https://example.com){.btn .btn-secondary}"""
 
-        response = authenticated_client.post("/settings/wizard/preview", data={
-            "markdown": markdown_content
-        })
+        response = authenticated_client.post(
+            "/settings/wizard/preview", data={"markdown": markdown_content}
+        )
         assert response.status_code == 200
 
         response_text = response.get_data(as_text=True)
@@ -194,10 +198,12 @@ class TestBtnClassStyling:
         # Check that both buttons are rendered with correct classes
         assert 'class="btn"' in response_text
         assert 'class="btn btn-secondary"' in response_text
-        assert 'Primary Button' in response_text
-        assert 'Secondary Button' in response_text
+        assert "Primary Button" in response_text
+        assert "Secondary Button" in response_text
 
-    def test_btn_class_dark_mode_support(self, authenticated_client, sample_wizard_step_with_btn):
+    def test_btn_class_dark_mode_support(
+        self, authenticated_client, sample_wizard_step_with_btn
+    ):
         """Test that .btn class works properly in dark mode."""
         response = authenticated_client.get("/settings/wizard/preview/plex")
         assert response.status_code == 200
@@ -206,13 +212,15 @@ class TestBtnClassStyling:
 
         # Should contain dark mode styling or be compatible with dark mode
         # This will be implemented as part of the CSS solution
-        assert 'dark:' in response_text or 'wizard-content-area' in response_text
+        assert "dark:" in response_text or "wizard-content-area" in response_text
 
 
 class TestBtnClassAccessibility:
     """Test .btn class accessibility compliance."""
 
-    def test_btn_class_maintains_link_semantics(self, authenticated_client, sample_wizard_step_with_btn):
+    def test_btn_class_maintains_link_semantics(
+        self, authenticated_client, sample_wizard_step_with_btn
+    ):
         """Test that .btn class maintains proper link semantics for accessibility."""
         response = authenticated_client.get("/settings/wizard/preview/plex")
         assert response.status_code == 200
@@ -221,10 +229,12 @@ class TestBtnClassAccessibility:
 
         # Should maintain href attribute for screen readers and have meaningful text
         assert 'class="btn"' in response_text
-        assert 'href=' in response_text
-        assert 'Download Plex' in response_text
+        assert "href=" in response_text
+        assert "Download Plex" in response_text
 
-    def test_btn_class_keyboard_navigation(self, authenticated_client, sample_wizard_step_with_btn):
+    def test_btn_class_keyboard_navigation(
+        self, authenticated_client, sample_wizard_step_with_btn
+    ):
         """Test that .btn class supports keyboard navigation."""
         response = authenticated_client.get("/settings/wizard/preview/plex")
         assert response.status_code == 200
@@ -233,13 +243,15 @@ class TestBtnClassAccessibility:
         response_text = response.get_data(as_text=True)
 
         # Should contain focus styling or be part of wizard-content-area focus handling
-        assert 'focus' in response_text or 'wizard-content-area' in response_text
+        assert "focus" in response_text or "wizard-content-area" in response_text
 
 
 class TestBtnClassResponsiveDesign:
     """Test .btn class responsive design behavior."""
 
-    def test_btn_class_mobile_responsive(self, authenticated_client, sample_wizard_step_with_btn):
+    def test_btn_class_mobile_responsive(
+        self, authenticated_client, sample_wizard_step_with_btn
+    ):
         """Test that .btn class works properly on mobile devices."""
         response = authenticated_client.get("/settings/wizard/preview/plex")
         assert response.status_code == 200
@@ -247,29 +259,31 @@ class TestBtnClassResponsiveDesign:
         response_text = response.get_data(as_text=True)
 
         # Should contain responsive styling or inherit from wizard-content-area
-        assert '@media' in response_text or 'wizard-content-area' in response_text
+        assert "@media" in response_text or "wizard-content-area" in response_text
 
     def test_btn_class_consistent_across_breakpoints(self, authenticated_client):
         """Test that .btn class maintains consistency across different screen sizes."""
-        markdown_content = '[Responsive Button](https://example.com){.btn}'
+        markdown_content = "[Responsive Button](https://example.com){.btn}"
 
-        response = authenticated_client.post("/settings/wizard/preview", data={
-            "markdown": markdown_content
-        })
+        response = authenticated_client.post(
+            "/settings/wizard/preview", data={"markdown": markdown_content}
+        )
         assert response.status_code == 200
 
         response_text = response.get_data(as_text=True)
 
         # Check that button is rendered correctly
         assert 'class="btn"' in response_text
-        assert 'Responsive Button' in response_text
+        assert "Responsive Button" in response_text
         assert 'href="https://example.com"' in response_text
 
 
 class TestBtnClassIntegration:
     """Test .btn class integration with existing wizard functionality."""
 
-    def test_btn_class_works_with_user_interaction_requirements(self, authenticated_client):
+    def test_btn_class_works_with_user_interaction_requirements(
+        self, authenticated_client
+    ):
         """Test that .btn class works with wizard step interaction requirements."""
         with authenticated_client.application.app_context():
             # Create step with interaction requirement
@@ -278,8 +292,8 @@ class TestBtnClassIntegration:
                 phase=WizardPhase.PRE,
                 position=0,
                 title="Interactive Step",
-                markdown='[Required Action](https://example.com){.btn}',
-                require_interaction=True
+                markdown="[Required Action](https://example.com){.btn}",
+                require_interaction=True,
             )
             db.session.add(step)
             db.session.commit()
@@ -291,10 +305,12 @@ class TestBtnClassIntegration:
 
         # Check that button is rendered correctly
         assert 'class="btn"' in response_text
-        assert 'Required Action' in response_text
+        assert "Required Action" in response_text
         assert 'href="https://example.com"' in response_text
 
-    def test_btn_class_preserves_existing_functionality(self, authenticated_client, sample_wizard_step_with_btn):
+    def test_btn_class_preserves_existing_functionality(
+        self, authenticated_client, sample_wizard_step_with_btn
+    ):
         """Test that .btn class doesn't break existing wizard functionality."""
         response = authenticated_client.get("/settings/wizard/preview/plex")
         assert response.status_code == 200
@@ -302,7 +318,7 @@ class TestBtnClassIntegration:
         response_text = response.get_data(as_text=True)
 
         # Check that wizard structure is maintained
-        assert 'wizard-content-area' in response_text
+        assert "wizard-content-area" in response_text
 
         # Check that buttons are rendered correctly
         assert 'class="btn"' in response_text
