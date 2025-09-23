@@ -5,12 +5,18 @@ These tests simulate the complete user journey from receiving an invitation
 link to successfully creating accounts on media servers.
 """
 
+from __future__ import annotations
+
 import os
 import tempfile
+from typing import TYPE_CHECKING, Any, Generator
 from unittest.mock import patch
 
 import pytest
 from playwright.sync_api import Page, expect
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 from app import create_app
 from app.config import BaseConfig
@@ -30,14 +36,14 @@ class E2ETestConfig(BaseConfig):
 
 
 @pytest.fixture(scope="session")
-def app():
+def app() -> Generator[Flask, None, None]:
     """Create app with file-based database for E2E tests."""
     # Clean up any existing test database
     test_db_path = f"{tempfile.gettempdir()}/wizarr_e2e_test.db"
     if os.path.exists(test_db_path):
         os.remove(test_db_path)
 
-    app = create_app(E2ETestConfig)  # type: ignore[arg-type]
+    app = create_app(E2ETestConfig)
     with app.app_context():
         db.create_all()
     yield app
@@ -50,7 +56,7 @@ def app():
 
 
 @pytest.fixture
-def invitation_setup(app):
+def invitation_setup(app: Flask) -> Generator[dict[str, Any], None, None]:
     """Setup test data for invitation E2E tests."""
     with app.app_context():
         setup_mock_servers()
@@ -92,7 +98,7 @@ def invitation_setup(app):
             used=False,
             unlimited=False,
         )
-        invitation.servers = [server]
+        invitation.servers.extend([server])
         db.session.add(invitation)
         db.session.commit()
 
@@ -120,30 +126,32 @@ class TestInvitationUserJourney:
         # Navigate to invitation page
         page.goto(f"{live_server.url()}{invitation_setup['invitation_url']}")
 
-        # Verify invitation page loads
+        # Wait for redirect to /join and page to load
+        page.wait_for_load_state("networkidle")
+
+        # Verify invitation page loads (welcome-jellyfin.html template)
         expect(page.locator("h1").first).to_contain_text("been invited")
 
         # Click "Accept Invitation" button to show the form
         page.click("#accept-invite-btn")
 
-        # Wait for form fields to become visible (they animate in sequentially)
-        page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
-            timeout=10000,
-        )
+        # Wait for form animation to complete and fields to be visible
+        # Wait for the form screen to be visible and form fields to animate in
+        page.wait_for_selector("#form-screen", state="visible", timeout=10000)
+        page.wait_for_timeout(2000)  # Wait for animation to complete
 
         # Check that form is present after clicking Accept Invitation
         expect(page.locator("form")).to_be_visible()
-        expect(page.locator("input[name='username']")).to_be_visible()
-        expect(page.locator("input[name='password']")).to_be_visible()
-        expect(page.locator("input[name='confirm_password']")).to_be_visible()
-        expect(page.locator("input[name='email']")).to_be_visible()
+        expect(page.locator("#username")).to_be_visible()
+        expect(page.locator("#password")).to_be_visible()
+        expect(page.locator("#confirm_password")).to_be_visible()
+        expect(page.locator("#email")).to_be_visible()
 
-        # Fill out the form
-        page.fill("input[name='username']", "e2etestuser")
-        page.fill("input[name='password']", "testpassword123")
-        page.fill("input[name='confirm_password']", "testpassword123")
-        page.fill("input[name='email']", "e2etest@example.com")
+        # Fill out the form (using WTForms field IDs)
+        page.fill("#username", "e2etestuser")
+        page.fill("#password", "testpassword123")
+        page.fill("#confirm_password", "testpassword123")
+        page.fill("#email", "e2etest@example.com")
 
         # Submit the form
         page.click("button[type='submit']")
@@ -172,10 +180,21 @@ class TestInvitationUserJourney:
         # Navigate to invitation page
         page.goto(f"{live_server.url()}{invitation_setup['invitation_url']}")
 
+        # Wait for redirect and page load
+        page.wait_for_load_state("networkidle")
+
         # Click "Accept Invitation" button to show the form
         page.click("#accept-invite-btn")
-        # Wait for form to fully load and be interactive
-        page.wait_for_timeout(3000)
+
+        # Wait for form animation to complete and fields to be visible
+        page.wait_for_selector("#form-screen", state="visible", timeout=15000)
+        # Wait for username field to be animated in and fully visible (not opacity: 0)
+        page.wait_for_selector(
+            "#username:not([style*='opacity: 0'])",
+            timeout=15000,
+        )
+        # Additional wait for form elements to be fully interactive
+        page.wait_for_timeout(1000)
 
         # Test empty form submission
         page.click("button[type='submit']")
@@ -186,10 +205,10 @@ class TestInvitationUserJourney:
         expect(page.locator("body")).to_contain_text("been invited")
 
         # Test password mismatch
-        page.fill("input[name='username']", "testuser")
-        page.fill("input[name='password']", "password123")
-        page.fill("input[name='confirm_password']", "differentpassword")
-        page.fill("input[name='email']", "test@example.com")
+        page.fill("#username", "testuser")
+        page.fill("#password", "password123")
+        page.fill("#confirm_password", "differentpassword")
+        page.fill("#email", "test@example.com")
         page.click("button[type='submit']")
 
         # Should show password mismatch error or stay on same page
@@ -198,8 +217,8 @@ class TestInvitationUserJourney:
 
         # Verify form elements are still usable (validation prevents progression)
         # Test that we can still interact with the form fields
-        page.fill("input[name='username']", "testuser")
-        expect(page.locator("input[name='email']")).to_be_visible()
+        page.fill("#username", "testuser")
+        expect(page.locator("#email")).to_be_visible()
 
     def test_expired_invitation(self, page: Page, live_server, app):
         """Test that expired invitations show appropriate error."""
@@ -221,7 +240,7 @@ class TestInvitationUserJourney:
                 expires=datetime.now(UTC) - timedelta(hours=1),
                 used=False,
             )
-            expired_invitation.servers = [server]
+            expired_invitation.servers.extend([server])
             db.session.add(expired_invitation)
             db.session.commit()
 
@@ -267,19 +286,27 @@ class TestInvitationUserJourney:
         # Navigate to invitation page
         page.goto(f"{live_server.url()}{invitation_setup['invitation_url']}")
 
+        # Wait for redirect and page load
+        page.wait_for_load_state("networkidle")
+
         # Click "Accept Invitation" button to show the form
         page.click("#accept-invite-btn")
-        # Wait for form fields to become visible (they animate in sequentially)
+
+        # Wait for form animation to complete and fields to be visible
+        page.wait_for_selector("#form-screen", state="visible", timeout=15000)
+        # Wait for username field to be animated in and fully visible (not opacity: 0)
         page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
-            timeout=10000,
+            "#username:not([style*='opacity: 0'])",
+            timeout=15000,
         )
+        # Additional wait for form elements to be fully interactive
+        page.wait_for_timeout(1000)
 
         # Fill and submit form
-        page.fill("input[name='username']", "erroruser")
-        page.fill("input[name='password']", "testpass123")
-        page.fill("input[name='confirm_password']", "testpass123")
-        page.fill("input[name='email']", "error@example.com")
+        page.fill("#username", "erroruser")
+        page.fill("#password", "testpass123")
+        page.fill("#confirm_password", "testpass123")
+        page.fill("#email", "error@example.com")
         page.click("button[type='submit']")
 
         # Should show error (connection refused since no real server running)
@@ -344,7 +371,7 @@ class TestMultiServerInvitationFlow:
                 used=False,
                 unlimited=False,
             )
-            invitation.servers = [jellyfin_server, emby_server]
+            invitation.servers.extend([jellyfin_server, emby_server])
             db.session.add(invitation)
             db.session.commit()
 
@@ -361,7 +388,7 @@ class TestMultiServerInvitationFlow:
         # Navigate to invitation page
         page.goto(f"{live_server.url()}/j/MULTI1")
 
-        # Wait for page to load
+        # Wait for redirect and page to load
         page.wait_for_load_state("networkidle")
 
         # Should show invitation content (may not show specific server names)
@@ -369,21 +396,21 @@ class TestMultiServerInvitationFlow:
 
         # Click "Accept Invitation" button to show the form
         page.click("#accept-invite-btn")
-        # Wait for form fields to become visible (they animate in sequentially)
+
+        # Wait for form animation to complete and fields to be visible
+        page.wait_for_selector("#form-screen", state="visible", timeout=10000)
+        # Wait for username field to be animated in and fully visible (not opacity: 0)
         page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
+            "#username:not([style*='opacity: 0'])",
             timeout=10000,
         )
 
-        # Wait for form to be visible
-        page.wait_for_selector("input[name='username']", timeout=5000)
-
         # Fill and submit the user registration form
-        page.fill("input[name='username']", "multiuser")
-        page.fill("input[name='password']", "testpass123")
-        page.fill("input[name='confirm_password']", "testpass123")
-        page.fill("input[name='email']", "multi@example.com")
-        page.click("button:has-text('Create an account')")
+        page.fill("#username", "multiuser")
+        page.fill("#password", "testpass123")
+        page.fill("#confirm_password", "testpass123")
+        page.fill("#email", "multi@example.com")
+        page.click("button[type='submit']")
 
         # Wait for form submission to complete
         page.wait_for_load_state("networkidle")
@@ -444,7 +471,7 @@ class TestMultiServerInvitationFlow:
                 used=False,
                 unlimited=False,
             )
-            invitation.servers = [jellyfin_server, broken_server]
+            invitation.servers.extend([jellyfin_server, broken_server])
             db.session.add(invitation)
             db.session.commit()
 
@@ -464,24 +491,27 @@ class TestMultiServerInvitationFlow:
 
         # Navigate and submit
         page.goto(f"{live_server.url()}/j/PARTIAL1")
-        # Wait for page to load
+
+        # Wait for redirect and page to load
         page.wait_for_load_state("networkidle")
 
         # Click "Accept Invitation" button to show the form
         page.click("#accept-invite-btn")
-        # Wait for form fields to become visible (they animate in sequentially)
+
+        # Wait for form animation to complete and fields to be visible
+        page.wait_for_selector("#form-screen", state="visible", timeout=10000)
+        # Wait for username field to be animated in and fully visible (not opacity: 0)
         page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
+            "#username:not([style*='opacity: 0'])",
             timeout=10000,
         )
 
-        # Should show invitation content and registration form
-        page.wait_for_selector("input[name='username']", timeout=10000)
-        page.fill("input[name='username']", "partialuser")
-        page.fill("input[name='password']", "testpass123")
-        page.fill("input[name='confirm_password']", "testpass123")
-        page.fill("input[name='email']", "partial@example.com")
-        page.click("button:has-text('Create an account')")
+        # Fill and submit the registration form
+        page.fill("#username", "partialuser")
+        page.fill("#password", "testpass123")
+        page.fill("#confirm_password", "testpass123")
+        page.fill("#email", "partial@example.com")
+        page.click("button[type='submit']")
 
         # Wait for form submission to complete
         page.wait_for_load_state("networkidle")
@@ -501,72 +531,73 @@ class TestInvitationUIComponents:
         """Test basic accessibility of invitation form."""
         page.goto(f"{live_server.url()}{invitation_setup['invitation_url']}")
 
+        # Wait for redirect and page load
+        page.wait_for_load_state("networkidle")
+
         # Click "Accept Invitation" button to show the form
         page.click("#accept-invite-btn")
-        # Wait for form fields to become visible (they animate in sequentially)
-        page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
-            timeout=10000,
-        )
 
-        # Check for form labels
-        expect(
-            page.locator("label[for*='username'], input[name='username'][aria-label]")
-        ).to_be_visible()
-        expect(
-            page.locator(
-                "label[for='password'], input[name='password'][aria-label]"
-            ).first
-        ).to_be_visible()
-        expect(
-            page.locator("label[for*='email'], input[name='email'][aria-label]")
-        ).to_be_visible()
+        # Wait for form animation to complete and fields to be visible
+        page.wait_for_selector("#form-screen", state="visible", timeout=15000)
+        # Wait for username field to be animated in and fully visible (not opacity: 0)
+        page.wait_for_selector(
+            "#username:not([style*='opacity: 0'])",
+            timeout=15000,
+        )
+        # Additional wait for form elements to be fully interactive
+        page.wait_for_timeout(1000)
+
+        # Check for form labels (using the actual label structure from welcome-jellyfin.html)
+        expect(page.locator("label").filter(has_text="Username")).to_be_visible()
+        # Use more specific locator for password field to avoid ambiguity with confirm password
+        expect(page.locator("label[for='password']").filter(has_text="Password")).to_be_visible()
+        expect(page.locator("label").filter(has_text="Email")).to_be_visible()
 
         # Check form has proper structure
         expect(page.locator("form")).to_have_attribute("method", "POST")
 
         # Test keyboard navigation
         page.keyboard.press("Tab")  # Should focus first input
-        focused_element = page.evaluate("document.activeElement.name")
-        assert focused_element in ["username", "password", "email"]
+        focused_element = page.evaluate("document.activeElement.id")
+        assert focused_element in [
+            "username",
+            "password",
+            "email",
+            "confirm_password",
+            "code",
+        ]
 
     def test_responsive_design(self, page: Page, live_server, invitation_setup):
         """Test invitation page on different screen sizes."""
         # Test desktop
         page.set_viewport_size({"width": 1920, "height": 1080})
         page.goto(f"{live_server.url()}{invitation_setup['invitation_url']}")
+        page.wait_for_load_state("networkidle")
         page.click("#accept-invite-btn")
-        # Wait for form fields to become visible
-        page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
-            timeout=10000,
-        )
+        page.wait_for_selector("#form-screen", state="visible", timeout=10000)
+        page.wait_for_timeout(2000)
         expect(page.locator("form")).to_be_visible()
 
         # Test tablet
         page.set_viewport_size({"width": 768, "height": 1024})
         page.reload()
+        page.wait_for_load_state("networkidle")
         page.click("#accept-invite-btn")
-        # Wait for form fields to become visible
-        page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
-            timeout=10000,
-        )
+        page.wait_for_selector("#form-screen", state="visible", timeout=10000)
+        page.wait_for_timeout(2000)
         expect(page.locator("form")).to_be_visible()
 
         # Test mobile
         page.set_viewport_size({"width": 375, "height": 667})
         page.reload()
+        page.wait_for_load_state("networkidle")
         page.click("#accept-invite-btn")
-        # Wait for form fields to become visible
-        page.wait_for_selector(
-            "input[name='username'][style*='opacity: 1'], input[name='username']:not([style*='opacity: 0'])",
-            timeout=10000,
-        )
+        page.wait_for_selector("#form-screen", state="visible", timeout=10000)
+        page.wait_for_timeout(2000)
         expect(page.locator("form")).to_be_visible()
 
         # Form should remain usable at all sizes
-        expect(page.locator("input[name='username']")).to_be_visible()
+        expect(page.locator("#username")).to_be_visible()
         expect(page.locator("button[type='submit']")).to_be_visible()
 
 

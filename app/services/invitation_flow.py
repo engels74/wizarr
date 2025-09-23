@@ -72,7 +72,7 @@ class InvitationFlowManager:
 
         return FlowResult(success=True, redirect_url=url_for("public.join"))
 
-    def process_join_request(self) -> FlowResult:
+    def process_join_request(self, skip_pre_steps: bool = False) -> FlowResult:
         """Process /join request - route to appropriate flow."""
         # Check for valid session token
         invite_token = session.get("invite_token")
@@ -101,12 +101,15 @@ class InvitationFlowManager:
                 context={"error": "No servers configured for this invitation"},
             )
 
-        # Check for pre-invite steps
-        pre_steps = self._get_pre_invite_steps(servers)
-        if pre_steps:
-            # Store server info in session for wizard
-            session["wizard_servers"] = [s.server_type for s in servers]
-            return FlowResult(success=True, redirect_url=url_for("public.pre_wizard"))
+        # Check for pre-invite steps (unless skipping)
+        if not skip_pre_steps:
+            pre_steps = self._get_pre_invite_steps(servers)
+            if pre_steps:
+                # Store server info in session for wizard
+                session["wizard_servers"] = [s.server_type for s in servers]
+                return FlowResult(
+                    success=True, redirect_url=url_for("public.pre_wizard")
+                )
 
         # No pre-steps, go directly to invite acceptance
         return self._render_invite_acceptance(invitation, servers)
@@ -277,17 +280,40 @@ class InvitationFlowManager:
         self, invitation: Invitation, servers: list[MediaServer]
     ) -> FlowResult:
         """Render the invite acceptance page."""
-        # Use existing invite acceptance template logic
-        # This is a placeholder - actual implementation depends on current templates
+        # Determine server type and render appropriate template
+        server_types = {s.server_type for s in servers}
 
-        server_name = servers[0].name if servers else "Media Server"
+        # If Plex is involved, render Plex OAuth template
+        if "plex" in server_types:
+            server_name = servers[0].name if servers else "Media Server"
+            return FlowResult(
+                success=True,
+                template="user-plex-login.html",
+                context={
+                    "code": invitation.code,
+                    "server_name": server_name,
+                    "servers": servers,
+                },
+            )
+
+        # For non-Plex servers, render the form-based template
+        from app.forms.join import JoinForm
+        from app.services.server_name_resolver import resolve_invitation_server_name
+
+        server_name = resolve_invitation_server_name(servers)
+        server_type = servers[0].server_type if servers else None
+
+        form = JoinForm()
+        form.code.data = invitation.code
 
         return FlowResult(
             success=True,
-            template="user-plex-login.html",  # or appropriate template
+            template="welcome-jellyfin.html",
             context={
                 "code": invitation.code,
+                "server_type": server_type,
                 "server_name": server_name,
+                "form": form,
                 "servers": servers,
             },
         )
