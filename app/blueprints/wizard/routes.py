@@ -263,11 +263,22 @@ def _render(post, ctx: dict, server_type: str | None = None) -> str:
     )
 
 
-def _serve(server: str, idx: int):
-    cfg = _settings()
-    steps = _steps(server, cfg)
+def _serve_wizard(server: str, idx: int, steps: list, phase: str):
+    """Common wizard rendering logic for both pre and post-wizard.
+
+    Args:
+        server: Server type (or "combo"/"bundle" for multi-server/bundle)
+        idx: Current step index
+        steps: List of wizard steps (already filtered by category)
+        phase: 'pre' or 'post' to indicate which phase
+
+    Returns:
+        Rendered template response with appropriate headers
+    """
     if not steps:
         abort(404)
+
+    cfg = _settings()
 
     # read the dir flag HTMX sends ('' | 'prev' | 'next')
     direction = request.values.get("dir", "")
@@ -304,6 +315,7 @@ def _serve(server: str, idx: int):
         server_type=server,
         direction=direction,
         require_interaction=require_interaction,
+        phase=phase,
     )
 
     # Add custom headers for client-side updates (HTMX requests only)
@@ -318,6 +330,12 @@ def _serve(server: str, idx: int):
         return resp
 
     return response
+
+
+def _serve(server: str, idx: int):
+    cfg = _settings()
+    steps = _steps(server, cfg)
+    return _serve_wizard(server, idx, steps, 'post')
 
 
 # ─── routes ─────────────────────────────────────────────────────
@@ -380,57 +398,8 @@ def combo(idx: int):
         # Add server type for each step
         step_server_mapping.extend([stype] * len(server_steps))
 
-    if not steps:
-        abort(404)
-
-    idx = max(0, min(idx, len(steps) - 1))
-
-    # Get the server type for the current step
-    current_server_type = (
-        step_server_mapping[idx] if idx < len(step_server_mapping) else order[0]
-    )
-
-    post = steps[idx]
-    html = _render(post, cfg | {"_": _}, server_type=current_server_type)
-
-    require_interaction = False
-    try:
-        require_interaction = bool(
-            getattr(post, "get", lambda k, d=None: None)("require", False)
-        )
-    except Exception:
-        require_interaction = False
-
-    # Determine which template to use based on request type
-    if not request.headers.get("HX-Request"):
-        # Initial page load - full wrapper with UI chrome
-        page = "wizard/frame.html"
-    else:
-        # HTMX request - content-only partial
-        page = "wizard/_content.html"
-
-    response = render_template(
-        page,
-        body_html=html,
-        idx=idx,
-        max_idx=len(steps) - 1,
-        server_type="combo",
-        direction=request.values.get("dir", ""),
-        require_interaction=require_interaction,
-    )
-
-    # Add custom headers for client-side updates (HTMX requests only)
-    if request.headers.get("HX-Request"):
-        from flask import make_response
-
-        resp = make_response(response)
-        resp.headers["X-Wizard-Idx"] = str(idx)
-        resp.headers["X-Require-Interaction"] = (
-            "true" if require_interaction else "false"
-        )
-        return resp
-
-    return response
+    # Use the new _serve_wizard function with 'post' phase
+    return _serve_wizard("combo", idx, steps, 'post')
 
 
 # ─── bundle-specific wizard route ──────────────────────────────
@@ -468,52 +437,6 @@ def bundle_view(idx: int):
             return default
 
     steps = [_RowAdapter(s) for s in steps_raw]
-    if not steps:
-        abort(404)
 
-    idx = max(0, min(idx, len(steps) - 1))
-
-    # Get the server type for the current step from the WizardStep
-    current_server_type = steps_raw[idx].server_type if idx < len(steps_raw) else None
-
-    post = steps[idx]
-    html = _render(post, _settings() | {"_": _}, server_type=current_server_type)
-
-    require_interaction = False
-    try:
-        require_interaction = bool(
-            getattr(post, "get", lambda k, d=None: None)("require", False)
-        )
-    except Exception:
-        require_interaction = False
-
-    # Determine which template to use based on request type
-    if not request.headers.get("HX-Request"):
-        # Initial page load - full wrapper with UI chrome
-        page = "wizard/frame.html"
-    else:
-        # HTMX request - content-only partial
-        page = "wizard/_content.html"
-
-    response = render_template(
-        page,
-        body_html=html,
-        idx=idx,
-        max_idx=len(steps) - 1,
-        server_type="bundle",
-        direction=request.values.get("dir", ""),
-        require_interaction=require_interaction,
-    )
-
-    # Add custom headers for client-side updates (HTMX requests only)
-    if request.headers.get("HX-Request"):
-        from flask import make_response
-
-        resp = make_response(response)
-        resp.headers["X-Wizard-Idx"] = str(idx)
-        resp.headers["X-Require-Interaction"] = (
-            "true" if require_interaction else "false"
-        )
-        return resp
-
-    return response
+    # Use the new _serve_wizard function with 'post' phase
+    return _serve_wizard("bundle", idx, steps, 'post')
