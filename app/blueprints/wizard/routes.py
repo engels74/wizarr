@@ -6,6 +6,7 @@ from flask import (
     Blueprint,
     abort,
     current_app,
+    flash,
     redirect,
     render_template,
     request,
@@ -23,6 +24,7 @@ from app.models import (
     WizardBundleStep,
     WizardStep,
 )
+from app.services.invite_code_manager import InviteCodeManager
 from app.services.ombi_client import run_all_importers
 
 wizard_bp = Blueprint("wizard", __name__, url_prefix="/wizard")
@@ -341,7 +343,73 @@ def _serve(server: str, idx: int):
     return _serve_wizard(server, idx, steps, phase="post")
 
 
+def _get_server_type_from_invitation(invitation: Invitation) -> str:
+    """Get server type from invitation.
+
+    Args:
+        invitation: Invitation object
+
+    Returns:
+        Server type string (e.g., 'plex', 'jellyfin')
+    """
+    # If invitation has servers, use the first one's type
+    if invitation.servers:
+        return invitation.servers[0].server_type
+
+    # Fallback to first configured server
+    first_srv = MediaServer.query.first()
+    return first_srv.server_type if first_srv else "plex"
+
+
 # ─── routes ─────────────────────────────────────────────────────
+@wizard_bp.route("/pre-wizard")
+@wizard_bp.route("/pre-wizard/<int:idx>")
+def pre_wizard(idx: int = 0):
+    """Display pre-invite wizard steps before user accepts invitation.
+
+    This endpoint shows wizard steps that should be viewed before the user
+    accepts an invitation and creates their account. It validates the invite
+    code on each request and redirects appropriately if:
+    - Invite code is invalid/expired
+    - No pre-invite steps exist for the invitation's service
+
+    Args:
+        idx: Current step index (default: 0)
+
+    Returns:
+        Rendered wizard template or redirect response
+    """
+    # Validate invite code from session
+    invite_code = InviteCodeManager.get_invite_code()
+    is_valid, invitation = InviteCodeManager.validate_invite_code(invite_code)
+
+    if not is_valid:
+        flash(_("Invalid or expired invitation"), "error")
+        return redirect(url_for("public.index"))
+
+    # Determine server type from invitation
+    server_type = _get_server_type_from_invitation(invitation)
+
+    # Get pre-invite steps
+    cfg = _settings()
+    steps = _steps(server_type, cfg, category="pre_invite")
+
+    if not steps:
+        # No pre-invite steps, mark as complete and redirect to join
+        InviteCodeManager.mark_pre_wizard_complete()
+        return redirect(url_for("public.invite", code=invite_code))
+
+    # Check if we're on the last step and moving forward
+    direction = request.values.get("dir", "")
+    if direction == "next" and idx >= len(steps) - 1:
+        # User completed all pre-wizard steps
+        InviteCodeManager.mark_pre_wizard_complete()
+        return redirect(url_for("public.invite", code=invite_code))
+
+    # Render wizard using existing _serve_wizard logic
+    return _serve_wizard(server_type, idx, steps, "pre")
+
+
 @wizard_bp.route("/")
 def start():
     """Entry point – choose wizard folder based on invitation or global settings."""
