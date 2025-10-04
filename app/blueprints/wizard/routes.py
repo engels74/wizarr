@@ -159,19 +159,27 @@ def _settings() -> dict[str, str | None]:
 # Removed _eligible function as part of requires system overhaul
 
 
-def _steps(server: str, cfg: dict):
-    """Return ordered wizard steps for *server* filtered by eligibility.
+def _steps(server: str, cfg: dict, category: str = "post_invite"):
+    """Return ordered wizard steps for *server* and *category* filtered by eligibility.
+
+    Args:
+        server: Server type (plex, jellyfin, etc.)
+        cfg: Configuration dictionary
+        category: Step category ('pre_invite' or 'post_invite'), defaults to 'post_invite'
 
     Preference order:
         1. Rows from the new *wizard_step* table (if any exist for the given
-           server_type).
-        2. Legacy markdown files shipped in the repository (fallback).
+           server_type and category).
+        2. Legacy markdown files shipped in the repository (fallback, post_invite only).
+
+    Returns:
+        List of wizard steps (frontmatter.Post or _RowAdapter objects)
     """
 
     # ─── 1) DB-backed steps ────────────────────────────────────────────────
     try:
         db_rows = (
-            WizardStep.query.filter_by(server_type=server)
+            WizardStep.query.filter_by(server_type=server, category=category)
             .order_by(WizardStep.position)
             .all()
         )
@@ -207,8 +215,13 @@ def _steps(server: str, cfg: dict):
             return steps
 
     # ─── 2) Fallback to bundled markdown files ─────────────────────────────
-    files = sorted((BASE_DIR / server).glob("*.md"))
-    return [frontmatter.load(str(f)) for f in files]
+    # Legacy markdown files are always treated as post_invite only
+    if category == "post_invite":
+        files = sorted((BASE_DIR / server).glob("*.md"))
+        return [frontmatter.load(str(f)) for f in files]
+
+    # No pre_invite steps in legacy files
+    return []
 
 
 def _render(post, ctx: dict, server_type: str | None = None) -> str:
