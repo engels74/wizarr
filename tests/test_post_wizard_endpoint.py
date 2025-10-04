@@ -19,7 +19,7 @@ Requirements tested:
 import pytest
 
 from app.extensions import db
-from app.models import Invitation, MediaServer, WizardStep
+from app.models import AdminAccount, Invitation, MediaServer, WizardStep
 from app.services.invite_code_manager import InviteCodeManager
 
 
@@ -27,14 +27,28 @@ from app.services.invite_code_manager import InviteCodeManager
 def session(app):
     """Return a clean database session inside an app context."""
     with app.app_context():
+        # Clean up before the test to ensure fresh state
+        db.session.rollback()
+        # Delete all test data in correct order (respecting foreign keys)
+        db.session.execute(db.text("DELETE FROM invitation_server"))
+        db.session.execute(db.text("DELETE FROM invitation_user"))
+        db.session.query(WizardStep).delete()
+        db.session.query(Invitation).delete()
+        db.session.query(MediaServer).delete()
+        db.session.query(AdminAccount).delete()
+        db.session.commit()
+
         yield db.session
 
         # Clean up after the test
         db.session.rollback()
-        # Delete all test data
+        # Delete all test data in correct order (respecting foreign keys)
+        db.session.execute(db.text("DELETE FROM invitation_server"))
+        db.session.execute(db.text("DELETE FROM invitation_user"))
         db.session.query(WizardStep).delete()
         db.session.query(Invitation).delete()
         db.session.query(MediaServer).delete()
+        db.session.query(AdminAccount).delete()
         db.session.commit()
 
 
@@ -159,6 +173,10 @@ class TestPostWizardCompletion:
 
         Requirement: 8.2
         """
+        # Delete all wizard steps to ensure none exist
+        session.query(WizardStep).delete()
+        session.commit()
+
         # Create server
         server = MediaServer(
             name="Test Jellyfin",
@@ -193,6 +211,10 @@ class TestPostWizardCompletion:
 
         Requirement: 8.7, 9.4
         """
+        # Delete all wizard steps to ensure none exist
+        session.query(WizardStep).delete()
+        session.commit()
+
         # Create server
         server = MediaServer(
             name="Test Jellyfin",
@@ -214,14 +236,14 @@ class TestPostWizardCompletion:
         # Set wizard_access and invite code
         with client.session_transaction() as sess:
             sess["wizard_access"] = "TEST123"
-            InviteCodeManager.store_invite_code("TEST123")
+            sess[InviteCodeManager.STORAGE_KEY] = "TEST123"
 
         # Access post-wizard (should redirect and clear data)
         client.get("/wizard/post-wizard", follow_redirects=True)
 
         # Verify invite data is cleared
         with client.session_transaction() as sess:
-            assert InviteCodeManager.get_invite_code() is None
+            assert sess.get(InviteCodeManager.STORAGE_KEY) is None
             assert "wizard_access" not in sess
 
     def test_clear_invite_data_after_completing_all_steps(
@@ -231,6 +253,10 @@ class TestPostWizardCompletion:
 
         Requirement: 8.7, 9.4
         """
+        # Delete all wizard steps first
+        session.query(WizardStep).delete()
+        session.commit()
+
         # Create server
         server = MediaServer(
             name="Test Jellyfin",
@@ -259,7 +285,7 @@ class TestPostWizardCompletion:
         # Set wizard_access and invite code
         with client.session_transaction() as sess:
             sess["wizard_access"] = "TEST123"
-            InviteCodeManager.store_invite_code("TEST123")
+            sess[InviteCodeManager.STORAGE_KEY] = "TEST123"
 
         # Access last step with "next" direction (completing wizard)
         response = client.get(
@@ -271,7 +297,7 @@ class TestPostWizardCompletion:
 
         # Verify invite data is cleared
         with client.session_transaction() as sess:
-            assert InviteCodeManager.get_invite_code() is None
+            assert sess.get(InviteCodeManager.STORAGE_KEY) is None
             assert "wizard_access" not in sess
 
 

@@ -486,17 +486,28 @@ def post_wizard(idx: int = 0):
             )
             return redirect(url_for("public.root"))
 
-    # Get post-invite steps
-    cfg = _settings()
-    steps = _steps(server_type, cfg, category="post_invite")
+    # Check for database-backed post-invite steps specifically
+    # We don't want to fall back to legacy markdown files for post-wizard
+    try:
+        db_steps = (
+            WizardStep.query.filter_by(server_type=server_type, category="post_invite")
+            .order_by(WizardStep.position)
+            .all()
+        )
+    except Exception:
+        db_steps = []
 
-    if not steps:
-        # No post-invite steps, clear invite data and redirect to completion
+    if not db_steps:
+        # No post-invite steps in database, clear invite data and redirect to completion
         InviteCodeManager.clear_invite_data()
         # Clear wizard_access session as well
         session.pop("wizard_access", None)
         flash(_("Setup complete! Welcome to your media server."), "success")
         return redirect(url_for("public.root"))
+
+    # Get post-invite steps (will use db_steps or fall back to legacy files)
+    cfg = _settings()
+    steps = _steps(server_type, cfg, category="post_invite")
 
     # Check if we're on the last step and moving forward
     direction = request.values.get("dir", "")
@@ -514,46 +525,38 @@ def post_wizard(idx: int = 0):
 
 @wizard_bp.route("/")
 def start():
-    """Entry point – choose wizard folder based on invitation or global settings."""
+    """Entry point – redirect to appropriate wizard based on context.
+
+    This endpoint provides backward compatibility with the old /wizard URL.
+    It intelligently redirects users to the appropriate wizard phase:
+
+    - Authenticated users → /post-wizard (they've already accepted an invitation)
+    - Users with invite code → /pre-wizard (they're in the invitation flow)
+    - Others → home page (no context available)
+
+    Requirements: 8.8, 12.4, 12.5
+    """
     run_all_importers()
 
-    inv_code = session.get("wizard_access")
-    server_type = None
-    if inv_code:
-        inv = Invitation.query.filter_by(code=inv_code).first()
+    # Priority 1: Check if user is authenticated or has wizard_access session
+    # These users should see post-wizard steps
+    if current_user.is_authenticated or session.get("wizard_access"):
+        return redirect(url_for("wizard.post_wizard"))
 
-        # ── 1️⃣ explicit bundle override ───────────────────────────
-        if inv and inv.wizard_bundle_id:
-            session["wizard_bundle_id"] = inv.wizard_bundle_id
-            # drop any server order session var to avoid conflicts
-            session.pop("wizard_server_order", None)
-            return redirect(url_for("wizard.bundle_view", idx=0))
-
-        # ── 2️⃣ multi-server combo logic ───────────────────────────
-        if inv and inv.servers:
-            server_order = sorted(inv.servers, key=lambda s: s.server_type)
-            if len(server_order) > 1:
-                # store ordered list in session and redirect to combo route
-                session["wizard_server_order"] = [s.server_type for s in server_order]
-                return redirect(url_for("wizard.combo", idx=0))
-            server_type = server_order[0].server_type
-
-    # Fallback to first configured server if no invitation context
-    if not server_type:
-        first_srv = MediaServer.query.first()
-        if first_srv:
-            server_type = first_srv.server_type
+    # Priority 2: Check for invite code in session (from InviteCodeManager)
+    # These users should see pre-wizard steps
+    invite_code = InviteCodeManager.get_invite_code()
+    if invite_code:
+        # Validate the invite code before redirecting
+        is_valid, invitation = InviteCodeManager.validate_invite_code(invite_code)
+        if is_valid and invitation:
+            return redirect(url_for("wizard.pre_wizard"))
         else:
-            # No servers configured - show error message
-            flash(
-                _(
-                    "No media servers are configured. Please contact the administrator to set up a media server."
-                ),
-                "error",
-            )
-            return redirect(url_for("public.index"))
+            # Invalid invite code - clear it and fall through to home redirect
+            InviteCodeManager.clear_invite_data()
 
-    return _serve(server_type, 0)
+    # Priority 3: No context available - redirect to home page
+    return redirect(url_for("public.index"))
 
 
 @wizard_bp.route("/<server>/<int:idx>")
