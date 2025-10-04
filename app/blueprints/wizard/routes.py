@@ -343,22 +343,35 @@ def _serve(server: str, idx: int):
     return _serve_wizard(server, idx, steps, phase="post")
 
 
-def _get_server_type_from_invitation(invitation: Invitation) -> str:
+def _get_server_type_from_invitation(invitation: Invitation) -> str | None:
     """Get server type from invitation.
 
     Args:
         invitation: Invitation object
 
     Returns:
-        Server type string (e.g., 'plex', 'jellyfin')
+        Server type string (e.g., 'plex', 'jellyfin') or None if no servers configured
+
+    Note:
+        This function maintains server-agnostic architecture by never hardcoding
+        a specific server type as a fallback. If no servers are configured,
+        it returns None and the caller should handle this appropriately.
     """
-    # If invitation has servers, use the first one's type
-    if invitation.servers:
+    # Priority 1: Check new many-to-many relationship
+    if hasattr(invitation, "servers") and invitation.servers:
         return invitation.servers[0].server_type
 
-    # Fallback to first configured server
+    # Priority 2: Check legacy single server relationship (backward compatibility)
+    if hasattr(invitation, "server") and invitation.server:
+        return invitation.server.server_type
+
+    # Priority 3: Fallback to first configured server in the system
     first_srv = MediaServer.query.first()
-    return first_srv.server_type if first_srv else "plex"
+    if first_srv:
+        return first_srv.server_type
+
+    # No servers configured - return None to signal error condition
+    return None
 
 
 # ─── routes ─────────────────────────────────────────────────────
@@ -372,6 +385,7 @@ def pre_wizard(idx: int = 0):
     code on each request and redirects appropriately if:
     - Invite code is invalid/expired
     - No pre-invite steps exist for the invitation's service
+    - No media servers are configured
 
     Args:
         idx: Current step index (default: 0)
@@ -381,14 +395,28 @@ def pre_wizard(idx: int = 0):
     """
     # Validate invite code from session
     invite_code = InviteCodeManager.get_invite_code()
+    if not invite_code:
+        flash(_("Invalid or expired invitation"), "error")
+        return redirect(url_for("public.index"))
+
     is_valid, invitation = InviteCodeManager.validate_invite_code(invite_code)
 
-    if not is_valid:
+    if not is_valid or not invitation:
         flash(_("Invalid or expired invitation"), "error")
         return redirect(url_for("public.index"))
 
     # Determine server type from invitation
     server_type = _get_server_type_from_invitation(invitation)
+
+    # Handle case where no servers are configured
+    if not server_type:
+        flash(
+            _(
+                "No media servers are configured. Please contact the administrator to set up a media server."
+            ),
+            "error",
+        )
+        return redirect(url_for("public.index"))
 
     # Get pre-invite steps
     cfg = _settings()
@@ -436,9 +464,20 @@ def start():
                 return redirect(url_for("wizard.combo", idx=0))
             server_type = server_order[0].server_type
 
+    # Fallback to first configured server if no invitation context
     if not server_type:
         first_srv = MediaServer.query.first()
-        server_type = first_srv.server_type if first_srv else "plex"
+        if first_srv:
+            server_type = first_srv.server_type
+        else:
+            # No servers configured - show error message
+            flash(
+                _(
+                    "No media servers are configured. Please contact the administrator to set up a media server."
+                ),
+                "error",
+            )
+            return redirect(url_for("public.index"))
 
     return _serve(server_type, 0)
 
