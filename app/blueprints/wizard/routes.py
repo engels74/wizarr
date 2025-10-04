@@ -263,12 +263,22 @@ def _render(post, ctx: dict, server_type: str | None = None) -> str:
     )
 
 
-def _serve(server: str, idx: int):
-    cfg = _settings()
-    steps = _steps(server, cfg)
+def _serve_wizard(server: str, idx: int, steps: list, phase: str):
+    """Common wizard rendering logic for both pre and post-wizard.
+
+    Args:
+        server: Server type (plex, jellyfin, etc.)
+        idx: Current step index
+        steps: List of wizard steps (frontmatter.Post or _RowAdapter objects)
+        phase: 'pre' or 'post' to indicate which phase
+
+    Returns:
+        Rendered template response with appropriate headers
+    """
     if not steps:
         abort(404)
 
+    cfg = _settings()
     # read the dir flag HTMX sends ('' | 'prev' | 'next')
     direction = request.values.get("dir", "")
 
@@ -304,6 +314,7 @@ def _serve(server: str, idx: int):
         server_type=server,
         direction=direction,
         require_interaction=require_interaction,
+        phase=phase,  # NEW: Pass phase to template
     )
 
     # Add custom headers for client-side updates (HTMX requests only)
@@ -318,6 +329,16 @@ def _serve(server: str, idx: int):
         return resp
 
     return response
+
+
+def _serve(server: str, idx: int):
+    """Legacy serve function - maintained for backward compatibility.
+
+    This function now delegates to _serve_wizard() with default post_invite phase.
+    """
+    cfg = _settings()
+    steps = _steps(server, cfg, category="post_invite")
+    return _serve_wizard(server, idx, steps, phase="post")
 
 
 # ─── routes ─────────────────────────────────────────────────────
@@ -364,6 +385,12 @@ def step(server, idx):
 
 @wizard_bp.route("/combo/<int:idx>")
 def combo(idx: int):
+    """Combined wizard for multi-server invites.
+
+    Note: This function has custom logic for concatenating steps from multiple servers,
+    so it doesn't use _serve_wizard() directly. However, it maintains the same
+    rendering logic and template structure.
+    """
     cfg = _settings()
     order = session.get("wizard_server_order") or []
     if not order:
@@ -417,6 +444,7 @@ def combo(idx: int):
         server_type="combo",
         direction=request.values.get("dir", ""),
         require_interaction=require_interaction,
+        phase="post",  # Combo wizard is always post-invite
     )
 
     # Add custom headers for client-side updates (HTMX requests only)
@@ -438,6 +466,12 @@ def combo(idx: int):
 
 @wizard_bp.route("/bundle/<int:idx>")
 def bundle_view(idx: int):
+    """Bundle-specific wizard route.
+
+    Note: This function has custom logic for loading steps from bundles,
+    so it doesn't use _serve_wizard() directly. However, it maintains the same
+    rendering logic and template structure.
+    """
     bundle_id = session.get("wizard_bundle_id")
     if not bundle_id:
         return redirect(url_for("wizard.start"))
@@ -503,6 +537,7 @@ def bundle_view(idx: int):
         server_type="bundle",
         direction=request.values.get("dir", ""),
         require_interaction=require_interaction,
+        phase="post",  # Bundles are always post-invite (for now)
     )
 
     # Add custom headers for client-side updates (HTMX requests only)
