@@ -149,9 +149,12 @@ def create_step():
         server_type_attr = getattr(form, "server_type", None)
         stype = "custom" if simple else (server_type_attr and server_type_attr.data)
 
+        # Get category from form (defaults to 'post_invite')
+        category = form.category.data if hasattr(form, "category") else "post_invite"
+
         max_pos = (
             db.session.query(func.max(WizardStep.position))
-            .filter_by(server_type=stype)
+            .filter_by(server_type=stype, category=category)
             .scalar()
         )
         next_pos = (max_pos or 0) + 1
@@ -160,6 +163,7 @@ def create_step():
 
         step = WizardStep(
             server_type=stype,
+            category=category,
             position=next_pos,
             title=getattr(form, "title", None) and form.title.data or None,
             markdown=cleaned_md,
@@ -229,6 +233,9 @@ def create_preset():
             flash("Preset ID and server type are required", "danger")
             return redirect(url_for("wizard_admin.create_preset"))
 
+        # Get category from form (defaults to 'post_invite')
+        category = form.category.data if hasattr(form, "category") else "post_invite"
+
         # Prepare template variables
         template_vars = {}
         if form.discord_id.data:
@@ -241,10 +248,10 @@ def create_preset():
             markdown_content = create_step_from_preset(preset_id, **template_vars)
             title = get_preset_title(preset_id)
 
-            # Find next position for this server type
+            # Find next position for this server type and category
             max_pos = (
                 db.session.query(func.max(WizardStep.position))
-                .filter_by(server_type=server_type)
+                .filter_by(server_type=server_type, category=category)
                 .scalar()
             )
             next_pos = (max_pos or 0) + 1
@@ -252,6 +259,7 @@ def create_preset():
             # Create the step
             step = WizardStep(
                 server_type=server_type,
+                category=category,
                 position=next_pos,
                 title=title,
                 markdown=markdown_content,
@@ -289,6 +297,10 @@ def edit_step(step_id: int):
         if not simple:
             server_type_attr = getattr(form, "server_type", None)
             step.server_type = server_type_attr.data if server_type_attr else "custom"
+
+        # Update category if present on form
+        if hasattr(form, "category") and form.category.data:
+            step.category = form.category.data
 
         step.title = getattr(form, "title", None) and form.title.data or None
         cleaned_md = _strip_localization(form.markdown.data or "")
