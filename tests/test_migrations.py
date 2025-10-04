@@ -337,3 +337,148 @@ def test_upgrade_from_latest_release(migration_app, temp_db):
             assert has_unique_constraint, (
                 "wizard_bundle_step missing unique constraint after upgrade"
             )
+
+
+def test_wizard_step_category_migration(migration_app, temp_db):
+    """Test that wizard_step table has category column with correct schema.
+
+    This test verifies the migration that adds the 'category' field to wizard_step
+    and updates the unique constraint from (server_type, position) to
+    (server_type, category, position).
+    """
+    with migration_app.app_context():
+        # Run all migrations to HEAD
+        upgrade()
+
+        engine = create_engine(temp_db)
+        with engine.connect() as conn:
+            # Verify wizard_step table exists
+            result = conn.execute(
+                text(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='wizard_step'"
+                )
+            )
+            assert result.fetchone() is not None, "wizard_step table not created"
+
+            # Check category column exists with correct properties
+            result = conn.execute(text("PRAGMA table_info(wizard_step)"))
+            columns = {row[1]: row for row in result}
+
+            assert "category" in columns, "category column not found in wizard_step"
+
+            # Verify category column properties (name, type, notnull, default)
+            category_col = columns["category"]
+            col_name, col_type, col_notnull, col_default = (
+                category_col[1],
+                category_col[2],
+                category_col[3],
+                category_col[4],
+            )
+
+            assert col_name == "category", "category column has wrong name"
+            assert col_type == "VARCHAR", f"category column has wrong type: {col_type}"
+            assert col_notnull == 1, "category column should be NOT NULL"
+            assert col_default == "'post_invite'", (
+                f"category column should default to 'post_invite', got {col_default}"
+            )
+
+            # Check for the updated unique constraint
+            # SQLite stores the constraint in the CREATE TABLE statement
+            result = conn.execute(
+                text(
+                    "SELECT sql FROM sqlite_master WHERE type='table' AND name='wizard_step'"
+                )
+            )
+            create_table_sql = result.fetchone()[0]
+
+            # Verify the new constraint includes category
+            assert "uq_step_server_category_pos" in create_table_sql, (
+                "New unique constraint 'uq_step_server_category_pos' not found"
+            )
+
+            # Verify the constraint includes server_type, category, and position
+            assert "server_type" in create_table_sql, (
+                "Unique constraint doesn't include server_type"
+            )
+            assert "category" in create_table_sql, (
+                "Unique constraint doesn't include category"
+            )
+            assert "position" in create_table_sql, (
+                "Unique constraint doesn't include position"
+            )
+
+
+def test_wizard_step_category_unique_constraint_behavior(migration_app, temp_db):
+    """Test that the unique constraint allows same position across different categories."""
+    from app.models import WizardStep
+    from app.extensions import db
+
+    with migration_app.app_context():
+        upgrade()
+
+        # Create two steps with same server_type and position but different categories
+        pre_step = WizardStep(
+            server_type="plex",
+            category="pre_invite",
+            position=0,
+            markdown="# Pre-invite step",
+        )
+        post_step = WizardStep(
+            server_type="plex",
+            category="post_invite",
+            position=0,
+            markdown="# Post-invite step",
+        )
+
+        db.session.add(pre_step)
+        db.session.add(post_step)
+
+        # This should succeed - same position but different categories
+        db.session.commit()
+
+        # Verify both steps were created
+        assert pre_step.id is not None, "Pre-invite step not created"
+        assert post_step.id is not None, "Post-invite step not created"
+        assert pre_step.id != post_step.id, "Steps should have different IDs"
+
+        # Verify we can query by category
+        pre_steps = WizardStep.query.filter_by(
+            server_type="plex", category="pre_invite"
+        ).all()
+        post_steps = WizardStep.query.filter_by(
+            server_type="plex", category="post_invite"
+        ).all()
+
+        assert len(pre_steps) == 1, "Should have one pre-invite step"
+        assert len(post_steps) == 1, "Should have one post-invite step"
+
+        # Clean up
+        db.session.delete(pre_step)
+        db.session.delete(post_step)
+        db.session.commit()
+
+
+def test_wizard_step_category_default_value(migration_app, temp_db):
+    """Test that new wizard steps default to post_invite category."""
+    from app.models import WizardStep
+    from app.extensions import db
+
+    with migration_app.app_context():
+        upgrade()
+
+        # Create a step without specifying category
+        step = WizardStep(
+            server_type="jellyfin", position=0, markdown="# Test step"
+        )
+
+        db.session.add(step)
+        db.session.commit()
+
+        # Verify it defaults to post_invite
+        assert step.category == "post_invite", (
+            f"New step should default to post_invite, got {step.category}"
+        )
+
+        # Clean up
+        db.session.delete(step)
+        db.session.commit()

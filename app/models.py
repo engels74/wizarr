@@ -491,8 +491,8 @@ class WizardStep(db.Model):
     """Markdown wizard page stored in the database instead of loose files.
 
     Each *server_type* (plex, jellyfin, …) owns an ordered list of steps with
-    an integer *position* starting at 0.  A `(server_type, position)` unique
-    constraint guarantees a stable order without gaps.
+    an integer *position* starting at 0.  A `(server_type, category, position)` unique
+    constraint guarantees a stable order without gaps within each category.
     """
 
     __tablename__ = "wizard_step"
@@ -519,6 +519,14 @@ class WizardStep(db.Model):
     # New: require explicit user interaction before enabling Next
     require_interaction = db.Column(db.Boolean, default=False, nullable=True)
 
+    # Category: pre_invite or post_invite
+    category = db.Column(
+        db.String,
+        nullable=False,
+        default='post_invite',
+        server_default='post_invite'
+    )
+
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
@@ -530,7 +538,7 @@ class WizardStep(db.Model):
     )
 
     __table_args__ = (
-        db.UniqueConstraint("server_type", "position", name="uq_step_server_pos"),
+        db.UniqueConstraint("server_type", "category", "position", name="uq_step_server_category_pos"),
     )
 
     def __init__(self, **kwargs):
@@ -542,6 +550,7 @@ class WizardStep(db.Model):
         return {
             "id": self.id,
             "server_type": self.server_type,
+            "category": self.category,
             "position": self.position,
             "title": self.title,
             "markdown": self.markdown,
