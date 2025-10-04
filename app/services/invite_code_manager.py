@@ -5,8 +5,6 @@ This service manages invite code persistence and validation across the invitatio
 using Flask session for server-side storage to prevent client-side tampering.
 """
 
-from typing import Optional, Tuple
-
 from flask import session
 
 from app.extensions import db
@@ -29,7 +27,7 @@ class InviteCodeManager:
         session[InviteCodeManager.STORAGE_KEY] = code
 
     @staticmethod
-    def get_invite_code() -> Optional[str]:
+    def get_invite_code() -> str | None:
         """Retrieve stored invite code from session.
 
         Returns:
@@ -38,7 +36,7 @@ class InviteCodeManager:
         return session.get(InviteCodeManager.STORAGE_KEY)
 
     @staticmethod
-    def validate_invite_code(code: str) -> Tuple[bool, Optional[Invitation]]:
+    def validate_invite_code(code: str | None) -> tuple[bool, Invitation | None]:
         """Validate invite code and return invitation if valid.
 
         Checks:
@@ -47,7 +45,7 @@ class InviteCodeManager:
         - Invitation has not been fully used (for limited invitations)
 
         Args:
-            code: Invitation code to validate
+            code: Invitation code to validate (can be None)
 
         Returns:
             Tuple of (is_valid, invitation_object)
