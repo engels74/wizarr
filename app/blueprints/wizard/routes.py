@@ -438,6 +438,80 @@ def pre_wizard(idx: int = 0):
     return _serve_wizard(server_type, idx, steps, "pre")
 
 
+@wizard_bp.route("/post-wizard")
+@wizard_bp.route("/post-wizard/<int:idx>")
+def post_wizard(idx: int = 0):
+    """Display post-invite wizard steps after user accepts invitation.
+
+    This endpoint shows wizard steps that should be viewed after the user
+    accepts an invitation and creates their account. It validates authentication
+    and redirects appropriately if:
+    - User is not authenticated and has no wizard_access session
+    - No post-invite steps exist for the service
+    - No media servers are configured
+
+    Args:
+        idx: Current step index (default: 0)
+
+    Returns:
+        Rendered wizard template or redirect response
+    """
+    # Check authentication (user must have accepted invitation)
+    # Allow access if user is authenticated OR has wizard_access session
+    if not current_user.is_authenticated and not session.get("wizard_access"):
+        flash(_("Please log in to continue"), "warning")
+        return redirect(url_for("auth.login"))
+
+    # Determine server type from invitation or first configured server
+    server_type = None
+    inv_code = session.get("wizard_access")
+
+    if inv_code:
+        inv = Invitation.query.filter_by(code=inv_code).first()
+        if inv:
+            server_type = _get_server_type_from_invitation(inv)
+
+    # Fallback to first configured server if no invitation context
+    if not server_type:
+        first_srv = MediaServer.query.first()
+        if first_srv:
+            server_type = first_srv.server_type
+        else:
+            # No servers configured - show error message
+            flash(
+                _(
+                    "No media servers are configured. Please contact the administrator to set up a media server."
+                ),
+                "error",
+            )
+            return redirect(url_for("public.root"))
+
+    # Get post-invite steps
+    cfg = _settings()
+    steps = _steps(server_type, cfg, category="post_invite")
+
+    if not steps:
+        # No post-invite steps, clear invite data and redirect to completion
+        InviteCodeManager.clear_invite_data()
+        # Clear wizard_access session as well
+        session.pop("wizard_access", None)
+        flash(_("Setup complete! Welcome to your media server."), "success")
+        return redirect(url_for("public.root"))
+
+    # Check if we're on the last step and moving forward
+    direction = request.values.get("dir", "")
+    if direction == "next" and idx >= len(steps) - 1:
+        # User completed all post-wizard steps
+        InviteCodeManager.clear_invite_data()
+        # Clear wizard_access session as well
+        session.pop("wizard_access", None)
+        flash(_("Setup complete! Welcome to your media server."), "success")
+        return redirect(url_for("public.root"))
+
+    # Render wizard using existing _serve_wizard logic
+    return _serve_wizard(server_type, idx, steps, "post")
+
+
 @wizard_bp.route("/")
 def start():
     """Entry point – choose wizard folder based on invitation or global settings."""

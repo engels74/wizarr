@@ -7,7 +7,8 @@
      class="wizard-container md:justify-center md:items-center md:px-4 md:py-8"
      data-current-idx="{{ idx }}"
      data-max-idx="{{ max_idx }}"
-     data-server-type="{{ server_type }}">
+     data-server-type="{{ server_type }}"
+     data-phase="{{ phase|default('') }}">
 
   <!-- FLOATING PROGRESS BAR (mobile - floating at top) -->
   {% if max_idx > 0 %}
@@ -52,7 +53,13 @@
   <!-- FLOATING NAV BUTTONS (mobile - fixed at bottom) -->
   <div class="wizard-nav-mobile md:hidden">
       <a  id="wizard-prev-btn"
+          {% if phase == 'pre' %}
+          hx-get="{{ url_for('wizard.pre_wizard', idx=idx-1) }}"
+          {% elif phase == 'post' %}
+          hx-get="{{ url_for('wizard.post_wizard', idx=idx-1) }}"
+          {% else %}
           hx-get="{{ url_for('wizard.step', server=server_type, idx=idx-1) }}"
+          {% endif %}
           hx-vals='{"dir":"prev"}'
           hx-target="#wizard-content"
           hx-swap="outerHTML swap:0s"
@@ -66,7 +73,13 @@
       </a>
 
       <a  id="wizard-next-btn"
+          {% if phase == 'pre' %}
+          hx-get="{{ url_for('wizard.pre_wizard', idx=idx+1) }}"
+          {% elif phase == 'post' %}
+          hx-get="{{ url_for('wizard.post_wizard', idx=idx+1) }}"
+          {% else %}
           hx-get="{{ url_for('wizard.step', server=server_type, idx=idx+1) }}"
+          {% endif %}
           hx-vals='{"dir":"next"}'
           hx-target="#wizard-content"
           hx-swap="outerHTML swap:0s"
@@ -84,7 +97,13 @@
   <!-- DESKTOP NAV BUTTONS (centered below card) -->
   <div class="hidden md:flex justify-center space-x-4 mt-6">
       <a  id="wizard-prev-btn-desktop"
+          {% if phase == 'pre' %}
+          hx-get="{{ url_for('wizard.pre_wizard', idx=idx-1) }}"
+          {% elif phase == 'post' %}
+          hx-get="{{ url_for('wizard.post_wizard', idx=idx-1) }}"
+          {% else %}
           hx-get="{{ url_for('wizard.step', server=server_type, idx=idx-1) }}"
+          {% endif %}
           hx-vals='{"dir":"prev"}'
           hx-target="#wizard-content"
           hx-swap="outerHTML swap:0s"
@@ -95,7 +114,13 @@
       </a>
 
       <a  id="wizard-next-btn-desktop"
+          {% if phase == 'pre' %}
+          hx-get="{{ url_for('wizard.pre_wizard', idx=idx+1) }}"
+          {% elif phase == 'post' %}
+          hx-get="{{ url_for('wizard.post_wizard', idx=idx+1) }}"
+          {% else %}
           hx-get="{{ url_for('wizard.step', server=server_type, idx=idx+1) }}"
+          {% endif %}
           hx-vals='{"dir":"next"}'
           hx-target="#wizard-content"
           hx-swap="outerHTML swap:0s"
@@ -183,6 +208,10 @@ const WizardController = {
     return this.wrapper.dataset.serverType;
   },
 
+  getPhase() {
+    return this.wrapper.dataset.phase || '';
+  },
+
   updateUI(xhr) {
     if (!xhr) {
       console.error('No XHR object provided');
@@ -238,6 +267,7 @@ const WizardController = {
   },
 
   updateButtons(idx, maxIdx, serverType, requireInteraction) {
+    const phase = this.getPhase();
     const buttonConfigs = [
       { id: 'wizard-prev-btn', isPrev: true },
       { id: 'wizard-prev-btn-desktop', isPrev: true },
@@ -250,7 +280,16 @@ const WizardController = {
       if (!btn) return;
 
       const targetIdx = isPrev ? idx - 1 : idx + 1;
-      const newUrl = `/wizard/${serverType}/${targetIdx}`;
+
+      // Generate URL based on phase
+      let newUrl;
+      if (phase === 'pre') {
+        newUrl = `/wizard/pre-wizard/${targetIdx}`;
+      } else if (phase === 'post') {
+        newUrl = `/wizard/post-wizard/${targetIdx}`;
+      } else {
+        newUrl = `/wizard/${serverType}/${targetIdx}`;
+      }
 
       // Update URL
       btn.setAttribute('hx-get', newUrl);
