@@ -1,7 +1,7 @@
 # Wizard Architecture Documentation
 
-> **Version:** 3.0 - Two-Phase Wizard System
-> **Last Updated:** 2025-10-04
+> **Version:** 3.1 - Two-Phase Wizard System with Bundles
+> **Last Updated:** 2025-12-08
 
 ## Overview
 
@@ -61,27 +61,52 @@ Completion Page
 ```
 app/templates/wizard/
 ├── frame.html          # Initial page load wrapper
-├── steps.html          # UI chrome (progress + buttons)
+├── steps.html          # UI chrome (progress + buttons + WizardController JS)
 └── _content.html       # Content-only partial (HTMX swaps)
 
 app/blueprints/wizard/
 └── routes.py           # Flask routes with phase-aware template selection
 
 app/services/
-└── invite_code_manager.py  # Session management for invite codes
+├── invite_code_manager.py  # Session management for invite codes
+├── wizard_seed.py          # Seed database with bundled markdown steps
+├── wizard_reset.py         # Reset wizard steps to defaults
+├── wizard_export_import.py # Export/import wizard configurations
+└── wizard_migration.py     # Database migrations for wizard steps
+
+app/forms/
+└── wizard.py           # WTForms for wizard step CRUD operations
+
+app/models.py           # WizardStep, WizardBundle, WizardBundleStep models
+
+wizard_steps/           # Legacy bundled markdown files (repository root)
+├── plex/               # Plex server steps
+├── jellyfin/           # Jellyfin server steps
+├── emby/               # Emby server steps
+├── audiobookshelf/     # Audiobookshelf server steps
+├── kavita/             # Kavita server steps
+├── komga/              # Komga server steps
+└── romm/               # Romm server steps
 ```
 
 ### Routing Structure
 
 ```
-/wizard/                    # Legacy entry point (redirects based on context)
-/pre-wizard/<idx>          # Pre-invite phase steps
-/pre-wizard/complete       # Pre-invite completion (redirects to join page)
-/post-wizard/<idx>         # Post-invite phase steps
-/wizard/complete           # Post-invite completion page
-/wizard/<server>/<idx>     # Preview mode (admin/testing)
-/wizard/combo/<idx>        # Multi-server invitations
+/wizard/                           # Legacy entry point (redirects based on context)
+/wizard/pre-wizard                 # Pre-invite phase entry (idx=0)
+/wizard/pre-wizard/<idx>           # Pre-invite phase steps
+/wizard/pre-wizard/complete        # Pre-invite completion (redirects to join page)
+/wizard/post-wizard                # Post-invite phase entry (idx=0)
+/wizard/post-wizard/<idx>          # Post-invite phase steps
+/wizard/complete                   # Post-invite completion page
+/wizard/<server>/<idx>             # Preview mode (admin/testing)
+/wizard/combo/<category>           # Multi-server invitations (category entry)
+/wizard/combo/<category>/<idx>     # Multi-server invitations with step index
+/wizard/bundle/<idx>               # Bundle-specific wizard steps
 ```
+
+**Note:** Routes use `/wizard/` prefix (defined in blueprint). The `<category>` parameter
+in combo routes is `pre_invite` or `post_invite`.
 
 ### Request Flow
 
@@ -124,13 +149,17 @@ The `#wizard-wrapper` element stores:
 
 ```html
 <div id="wizard-wrapper"
+     x-data="wizardSwipe()"
      data-current-idx="0"
      data-max-idx="5"
      data-server-type="plex"
      data-phase="pre|post|preview"
      data-step-phase="pre|post"
-     data-completion-url="/pre-wizard/complete"
-     data-completion-label="Continue to Invite">
+     data-completion-url="/wizard/pre-wizard/complete"
+     data-completion-label="Continue to Invite"
+     data-next-label="Next"
+     data-phase-label-pre="Before Invitation"
+     data-phase-label-post="After Invitation">
 ```
 
 **Phase Attributes:**
@@ -138,16 +167,36 @@ The `#wizard-wrapper` element stores:
 - `data-step-phase`: Current step's specific phase (for mixed-phase flows)
 - `data-completion-url`: URL to redirect when completing this phase
 - `data-completion-label`: Button text for completion action
+- `data-next-label`: Default "Next" button label (i18n)
+- `data-phase-label-pre`: Label for pre-invite phase badge (i18n)
+- `data-phase-label-post`: Label for post-invite phase badge (i18n)
 
 ### JavaScript Controller
 
-`WizardController` handles all UI updates:
+`WizardController` handles all UI updates (defined in `steps.html`):
 
 ```javascript
-WizardController.updateUI(xhr)
-  → updateProgress(idx, maxIdx)       // Animate progress bars
-  → updateButtons(idx, maxIdx, ...)   // Update URLs & visibility (phase-aware)
-  → updatePhaseIndicator(phase)       // Update phase badge
+WizardController = {
+    init()                          // Initialize controller, attach HTMX listeners
+    getCurrentIdx()                 // Get current step index from wrapper
+    getMaxIdx()                     // Get max step index from wrapper
+    getServerType()                 // Get server type (plex, jellyfin, combo, bundle, etc.)
+    getPhase()                      // Get overall phase (pre, post, preview)
+    getStepPhase()                  // Get current step's phase
+    getCompletionUrl()              // Get completion redirect URL
+    getCompletionLabel()            // Get completion button text
+    getDefaultNextLabel()           // Get default "Next" label (i18n)
+    updateUI(xhr)                   // Main update handler after HTMX swap
+      → updatePhaseBadges(phase)    // Update phase indicator badges
+      → updateProgress(idx, maxIdx) // Animate progress bars and text
+      → updateButtons(...)          // Update nav button URLs & visibility
+}
+
+// Swipe gesture handler (Alpine.js component)
+wizardSwipe()
+    onTouchStart(e)                 // Record touch start position
+    onTouchMove(e)                  // Track touch movement
+    onTouchEnd(e)                   // Trigger navigation if threshold met
 ```
 
 ---
@@ -267,16 +316,22 @@ def post_wizard(idx: int = 0):
 
 ### Button URL Updates
 
-Buttons dynamically update their `hx-get` attribute based on phase:
+Buttons dynamically update their `hx-get` attribute based on phase and server type:
 
 ```javascript
-// Phase-aware URL generation
-if (phase === 'pre') {
-    btn.setAttribute('hx-get', `/pre-wizard/${targetIdx}`);
+// Phase and server-type aware URL generation
+if (serverType === 'combo') {
+    // Combo wizard uses path-based category routing
+    const category = phase === 'pre' ? 'pre_invite' : 'post_invite';
+    newUrl = `/wizard/combo/${category}/${targetIdx}`;
+} else if (serverType === 'bundle') {
+    newUrl = `/wizard/bundle/${targetIdx}`;
+} else if (phase === 'pre') {
+    newUrl = `/wizard/pre-wizard/${targetIdx}`;
 } else if (phase === 'post') {
-    btn.setAttribute('hx-get', `/post-wizard/${targetIdx}`);
+    newUrl = `/wizard/post-wizard/${targetIdx}`;
 } else {
-    btn.setAttribute('hx-get', `/wizard/${serverType}/${targetIdx}`);
+    newUrl = `/wizard/${serverType}/${targetIdx}`;
 }
 htmx.process(wrapper);  // Reinitialize HTMX
 ```
@@ -286,16 +341,20 @@ htmx.process(wrapper);  // Reinitialize HTMX
 The `_steps()` function filters steps by category:
 
 ```python
-def _steps(server: str, cfg: dict, category: str = "post_invite"):
-    """Return ordered wizard steps for server and category.
+def _steps(server: str, _cfg: dict, category: str = "post_invite"):
+    """Return ordered wizard steps for server and category filtered by eligibility.
 
     Args:
         server: Server type (plex, jellyfin, etc.)
-        cfg: Configuration dictionary
+        _cfg: Configuration dictionary (used for settings-based filtering)
         category: 'pre_invite' or 'post_invite' (default: 'post_invite')
 
+    Preference order:
+        1. Rows from the wizard_step table (if any exist for server_type and category)
+        2. Legacy markdown files shipped in wizard_steps/ (fallback, post_invite only)
+
     Returns:
-        List of wizard steps filtered by category
+        List of wizard steps (frontmatter.Post or _RowAdapter objects)
     """
     db_rows = (
         WizardStep.query
@@ -303,7 +362,60 @@ def _steps(server: str, cfg: dict, category: str = "post_invite"):
         .order_by(WizardStep.position)
         .all()
     )
-    # ... fallback to legacy markdown files (post_invite only) ...
+    # ... filter by requires settings, return adapted rows ...
+
+    # Fallback to bundled markdown files (post_invite only)
+    if category == "post_invite":
+        files = sorted((BASE_DIR / server).glob("*.md"))
+        return [frontmatter.load(str(f)) for f in files]
+```
+
+---
+
+## Database Models
+
+### WizardStep
+
+Stores wizard step content in the database (replaces legacy markdown files):
+
+```python
+class WizardStep(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    server_type = db.Column(db.String, nullable=False)   # plex, jellyfin, etc.
+    category = db.Column(db.String, default="post_invite")  # pre_invite | post_invite
+    position = db.Column(db.Integer, nullable=False)     # Sort order (0-indexed)
+    title = db.Column(db.String, nullable=True)          # Optional title
+    markdown = db.Column(db.Text, nullable=False)        # Step content
+    requires = db.Column(db.JSON, nullable=True)         # Settings requirements
+    require_interaction = db.Column(db.Boolean, default=False)  # Block Next button
+
+    # Unique constraint: (server_type, category, position)
+```
+
+### WizardBundle
+
+Named collection of wizard steps for custom flows:
+
+```python
+class WizardBundle(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    description = db.Column(db.String, nullable=True)
+    steps = db.relationship("WizardBundleStep", ...)  # Ordered steps
+```
+
+### WizardBundleStep
+
+Association table linking bundles to steps with ordering:
+
+```python
+class WizardBundleStep(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bundle_id = db.Column(db.Integer, db.ForeignKey("wizard_bundle.id"))
+    step_id = db.Column(db.Integer, db.ForeignKey("wizard_step.id"))
+    position = db.Column(db.Integer, nullable=False)
+
+    # Unique constraint: (bundle_id, position)
 ```
 
 ---
@@ -373,15 +485,18 @@ Phase indicator updated: pre
 
 **Completion:**
 - Final step shows "Continue to Invite" button
-- Redirects to `/pre-wizard/complete`
+- Redirects to `/wizard/pre-wizard/complete`
 - Completion endpoint redirects to join page (`/invite/<code>`)
 - Marks pre-wizard as complete in session
 
 **Session Management:**
 ```python
-InviteCodeManager.get_invite_code()           # Retrieve invite code
-InviteCodeManager.validate_invite_code(code)  # Validate invite code
-InviteCodeManager.mark_pre_wizard_complete()  # Mark phase complete
+InviteCodeManager.store_invite_code(code)     # Store invite code in session
+InviteCodeManager.get_invite_code()           # Retrieve stored invite code
+InviteCodeManager.validate_invite_code(code)  # Validate invite code (returns tuple)
+InviteCodeManager.mark_pre_wizard_complete()  # Mark pre-wizard phase complete
+InviteCodeManager.is_pre_wizard_complete()    # Check if pre-wizard is complete
+InviteCodeManager.clear_invite_data()         # Clear all invite-related session data
 ```
 
 ### Post-Invite Phase
@@ -405,6 +520,47 @@ session.pop("wizard_server_order", None)
 session.pop("wizard_bundle_id", None)
 ```
 
+### Multi-Server Invitations (Combo Wizard)
+
+For invitations linked to multiple media servers, the combo wizard concatenates
+steps from all servers in session-defined order:
+
+```python
+@wizard_bp.route("/combo/<category>/<int:idx>")
+def combo(category: str, idx: int = 0):
+    """Combined wizard for multi-server invites with category support.
+
+    Args:
+        category: 'pre_invite' or 'post_invite'
+        idx: Current step index across all servers
+    """
+    order = session.get("wizard_server_order")  # e.g., ["plex", "jellyfin"]
+
+    # Concatenate steps from all servers for the category
+    steps = []
+    for server_type in order:
+        steps.extend(_steps(server_type, cfg, category=category))
+```
+
+**Session Keys:**
+- `wizard_server_order`: List of server types in order
+- `wizard_bundle_id`: Optional bundle ID for custom step flows
+
+### Bundle Wizard
+
+For custom step sequences defined via `WizardBundle`:
+
+```python
+@wizard_bp.route("/bundle/<int:idx>")
+def bundle_view(idx: int):
+    """Bundle-specific wizard with custom step sequence."""
+    bundle_id = session.get("wizard_bundle_id")
+
+    # Load steps from bundle association table, filtered by current phase
+    ordered = WizardBundleStep.query.filter_by(bundle_id=bundle_id)
+        .order_by(WizardBundleStep.position).all()
+```
+
 ### Backward Compatibility
 
 The `/wizard/` endpoint provides backward compatibility:
@@ -422,44 +578,3 @@ def start():
 
     return redirect(url_for("public.root"))
 ```
-
----
-
-## Future Enhancements
-
-- [ ] Keyboard navigation (arrow keys)
-- [ ] Accessibility improvements (ARIA live regions)
-- [ ] Progress persistence (localStorage)
-- [ ] Prefetch next step for instant navigation
-- [ ] Step validation hooks
-- [ ] Custom step transitions
-- [ ] Phase-specific analytics tracking
-- [ ] Conditional phase skipping based on invitation settings
-
----
-
-## Testing Checklist
-
-### Core Functionality
-- [ ] Initial page load shows all UI chrome
-- [ ] Navigation updates only content area
-- [ ] Progress bar animates smoothly
-- [ ] Previous button hidden on first step
-- [ ] Next button hidden on last step
-- [ ] Swipe gestures work correctly
-- [ ] Required interaction blocks navigation
-- [ ] Mobile layout fits single viewport
-- [ ] Desktop layout stays centered
-- [ ] Dark mode works correctly
-
-### Phase-Specific Tests
-- [ ] Pre-wizard validates invite code on each request
-- [ ] Pre-wizard redirects to home if invite code invalid
-- [ ] Pre-wizard completion redirects to join page
-- [ ] Post-wizard requires authentication
-- [ ] Post-wizard completion clears session data
-- [ ] Post-wizard completion shows success message
-- [ ] Legacy `/wizard/` route redirects correctly
-- [ ] Multi-server invitations show correct phase steps
-- [ ] Phase badges display correctly
-- [ ] Completion buttons show correct labels
