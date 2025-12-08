@@ -99,6 +99,9 @@ function interactionConfig(initialConfig = {}) {
     // Configuration state
     config: mergeConfig(initialConfig),
 
+    // Main section collapsed/expanded state (collapsed by default)
+    mainSectionExpanded: false,
+
     // Section visibility state
     sections: {
       click: false,
@@ -115,7 +118,13 @@ function interactionConfig(initialConfig = {}) {
      * Initialize the component
      */
     init() {
-      // Expand sections that are enabled
+      // Expand main section if any interaction type is already enabled
+      // (e.g., when editing an existing step with interactions)
+      if (this.hasEnabledInteractions()) {
+        this.mainSectionExpanded = true;
+      }
+
+      // Expand individual sections that are enabled
       Object.keys(this.sections).forEach(key => {
         if (this.config[key]?.enabled) {
           this.sections[key] = true;
