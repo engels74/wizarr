@@ -1,8 +1,8 @@
 """Fix wizard step titles by stripping Jinja2 translation syntax.
 
-Revision ID: 20251209_fix_titles
-Revises: 20251208_add_wizard_step_interactions
-Create Date: 2025-12-09
+Revision ID: 20251211_fix_titles
+Revises: 20251210_add_wizard_interactions
+Create Date: 2025-12-11
 
 This migration fixes existing wizard step titles that were stored with
 Jinja2 template syntax like "{{ _('What is Plex?') }}" and converts
@@ -15,8 +15,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "20251209_fix_titles"
-down_revision = "20251208_add_wizard_interactions"
+revision = "20251211_fix_titles"
+down_revision = "20251210_add_wizard_interactions"
 branch_labels = None
 depends_on = None
 
