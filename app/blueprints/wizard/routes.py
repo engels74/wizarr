@@ -424,7 +424,7 @@ def _serve_wizard(
         server_type=server,
         direction=direction,
         require_interaction=require_interaction,
-        interactions=interactions_config,
+        interactions_config=interactions_config,
         phase=phase,  # NEW: Pass phase to template
         step_phase=display_phase,
         completion_url=completion_url,
@@ -1055,7 +1055,7 @@ def combo(category: str, idx: int = 0):
         server_type="combo",
         direction=direction,
         require_interaction=require_interaction,
-        interactions=interactions_config,
+        interactions_config=interactions_config,
         phase=phase,  # Pass phase based on category
         step_phase=phase,  # Pass step_phase to enable phase badge display
         # Pass current server type for display
