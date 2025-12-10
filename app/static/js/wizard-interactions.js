@@ -11,9 +11,10 @@
 // ============================================================================
 
 class InteractionHandler {
-  constructor(config, onSatisfied) {
+  constructor(config, onSatisfied, onUnsatisfied) {
     this.config = config;
     this.onSatisfied = onSatisfied;
+    this.onUnsatisfied = onUnsatisfied;
     this.satisfied = false;
   }
 
@@ -35,6 +36,16 @@ class InteractionHandler {
     }
   }
 
+  /** Mark this interaction as unsatisfied (e.g., ToS checkbox unchecked) */
+  markUnsatisfied() {
+    if (this.satisfied) {
+      this.satisfied = false;
+      if (this.onUnsatisfied) {
+        this.onUnsatisfied(this);
+      }
+    }
+  }
+
   /** Clean up resources - override in subclasses */
   cleanup() {}
 }
@@ -44,8 +55,8 @@ class InteractionHandler {
 // ============================================================================
 
 class ClickInteractionHandler extends InteractionHandler {
-  constructor(config, onSatisfied) {
-    super(config, onSatisfied);
+  constructor(config, onSatisfied, onUnsatisfied) {
+    super(config, onSatisfied, onUnsatisfied);
     this.clickHandler = null;
     this.targetSelector = config.target_selector || "a, button";
   }
@@ -91,8 +102,8 @@ class ClickInteractionHandler extends InteractionHandler {
 // ============================================================================
 
 class TimeInteractionHandler extends InteractionHandler {
-  constructor(config, onSatisfied) {
-    super(config, onSatisfied);
+  constructor(config, onSatisfied, onUnsatisfied) {
+    super(config, onSatisfied, onUnsatisfied);
     this.duration = config.duration_seconds || 10;
     this.showCountdown = config.show_countdown !== false;
     this.timerId = null;
@@ -186,8 +197,8 @@ class TimeInteractionHandler extends InteractionHandler {
 // ============================================================================
 
 class TosInteractionHandler extends InteractionHandler {
-  constructor(config, onSatisfied) {
-    super(config, onSatisfied);
+  constructor(config, onSatisfied, onUnsatisfied) {
+    super(config, onSatisfied, onUnsatisfied);
     this.requireScroll = config.require_scroll !== false;
     this.checkboxLabel = config.checkbox_label || "I have read and agree to the terms";
     this.content = config.content_markdown || "";
@@ -244,6 +255,9 @@ class TosInteractionHandler extends InteractionHandler {
       checkbox.addEventListener("change", (e) => {
         if (e.target.checked && (!this.requireScroll || this.hasScrolledToBottom)) {
           this.markSatisfied();
+        } else if (!e.target.checked) {
+          // Handle unchecking - re-disable the continue button
+          this.markUnsatisfied();
         }
       });
     }
@@ -283,8 +297,8 @@ class TosInteractionHandler extends InteractionHandler {
 // ============================================================================
 
 class TextValidationHandler extends InteractionHandler {
-  constructor(config, onSatisfied) {
-    super(config, onSatisfied);
+  constructor(config, onSatisfied, onUnsatisfied) {
+    super(config, onSatisfied, onUnsatisfied);
     this.question = config.question || "Please answer the question:";
     this.answers = config.answers || [];
     this.caseSensitive = config.case_sensitive === true;
@@ -370,8 +384,8 @@ class TextValidationHandler extends InteractionHandler {
 // ============================================================================
 
 class QuizInteractionHandler extends InteractionHandler {
-  constructor(config, onSatisfied) {
-    super(config, onSatisfied);
+  constructor(config, onSatisfied, onUnsatisfied) {
+    super(config, onSatisfied, onUnsatisfied);
     this.questions = config.questions || [];
     this.passThreshold = config.pass_threshold ?? 1.0;
     this.shuffleQuestions = config.shuffle_questions === true;
@@ -566,9 +580,10 @@ class QuizInteractionHandler extends InteractionHandler {
 // ============================================================================
 
 class InteractionCoordinator {
-  constructor(config, onAllSatisfied) {
+  constructor(config, onAllSatisfied, onUnsatisfied) {
     this.config = config || {};
     this.onAllSatisfied = onAllSatisfied;
+    this.onUnsatisfied = onUnsatisfied;
     this.handlers = [];
     this.allSatisfied = false;
   }
@@ -585,33 +600,54 @@ class InteractionCoordinator {
     }
 
     // Create handlers for enabled interactions
+    // Pass both onSatisfied and onUnsatisfied callbacks to handlers that support it
     if (this.config.click?.enabled) {
       this.handlers.push(
-        new ClickInteractionHandler(this.config.click, () => this.checkAllSatisfied())
+        new ClickInteractionHandler(
+          this.config.click,
+          () => this.checkAllSatisfied(),
+          () => this.recheckSatisfaction()
+        )
       );
     }
 
     if (this.config.time?.enabled) {
       this.handlers.push(
-        new TimeInteractionHandler(this.config.time, () => this.checkAllSatisfied())
+        new TimeInteractionHandler(
+          this.config.time,
+          () => this.checkAllSatisfied(),
+          () => this.recheckSatisfaction()
+        )
       );
     }
 
     if (this.config.tos?.enabled) {
       this.handlers.push(
-        new TosInteractionHandler(this.config.tos, () => this.checkAllSatisfied())
+        new TosInteractionHandler(
+          this.config.tos,
+          () => this.checkAllSatisfied(),
+          () => this.recheckSatisfaction()
+        )
       );
     }
 
     if (this.config.text_input?.enabled) {
       this.handlers.push(
-        new TextValidationHandler(this.config.text_input, () => this.checkAllSatisfied())
+        new TextValidationHandler(
+          this.config.text_input,
+          () => this.checkAllSatisfied(),
+          () => this.recheckSatisfaction()
+        )
       );
     }
 
     if (this.config.quiz?.enabled) {
       this.handlers.push(
-        new QuizInteractionHandler(this.config.quiz, () => this.checkAllSatisfied())
+        new QuizInteractionHandler(
+          this.config.quiz,
+          () => this.checkAllSatisfied(),
+          () => this.recheckSatisfaction()
+        )
       );
     }
 
@@ -638,6 +674,20 @@ class InteractionCoordinator {
       this.allSatisfied = true;
       if (this.onAllSatisfied) {
         this.onAllSatisfied();
+      }
+    }
+  }
+
+  /**
+   * Re-check satisfaction state when a handler becomes unsatisfied.
+   * Called when user unchecks ToS checkbox, etc.
+   */
+  recheckSatisfaction() {
+    const allDone = this.handlers.every((h) => h.isSatisfied());
+    if (!allDone && this.allSatisfied) {
+      this.allSatisfied = false;
+      if (this.onUnsatisfied) {
+        this.onUnsatisfied();
       }
     }
   }
@@ -672,16 +722,17 @@ window.wizardInteractionCoordinator = null;
  *
  * @param {Object} config - Interaction configuration from server
  * @param {Function} onAllSatisfied - Callback when all interactions are satisfied
+ * @param {Function} onUnsatisfied - Callback when an interaction becomes unsatisfied (e.g., ToS unchecked)
  * @returns {InteractionCoordinator}
  */
-function initWizardInteractions(config, onAllSatisfied) {
+function initWizardInteractions(config, onAllSatisfied, onUnsatisfied) {
   // Cleanup previous coordinator
   if (window.wizardInteractionCoordinator) {
     window.wizardInteractionCoordinator.cleanup();
   }
 
-  // Create new coordinator
-  const coordinator = new InteractionCoordinator(config, onAllSatisfied);
+  // Create new coordinator with both callbacks
+  const coordinator = new InteractionCoordinator(config, onAllSatisfied, onUnsatisfied);
   coordinator.init();
 
   window.wizardInteractionCoordinator = coordinator;
