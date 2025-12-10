@@ -64,6 +64,9 @@ app/templates/wizard/
 ├── steps.html          # UI chrome (progress + buttons + WizardController JS)
 └── _content.html       # Content-only partial (HTMX swaps)
 
+app/templates/partials/
+└── _interaction_config.html  # Interaction configuration UI component
+
 app/blueprints/wizard/
 └── routes.py           # Flask routes with phase-aware template selection
 
@@ -72,12 +75,19 @@ app/services/
 ├── wizard_seed.py          # Seed database with bundled markdown steps
 ├── wizard_reset.py         # Reset wizard steps to defaults
 ├── wizard_export_import.py # Export/import wizard configurations
-└── wizard_migration.py     # Database migrations for wizard steps
+├── wizard_migration.py     # Database migrations for wizard steps
+├── wizard_presets.py       # Preset templates for common integrations
+└── wizard_widgets.py       # Dynamic content widgets for wizard steps
 
 app/forms/
 └── wizard.py           # WTForms for wizard step CRUD operations
 
 app/models.py           # WizardStep, WizardBundle, WizardBundleStep models
+app/interactions.py     # Modular interaction type definitions
+
+app/static/js/
+├── interaction-config.js   # Interaction configuration form handling
+└── wizard-interactions.js  # Client-side interaction validation
 
 wizard_steps/           # Legacy bundled markdown files (repository root)
 ├── plex/               # Plex server steps
@@ -92,17 +102,18 @@ wizard_steps/           # Legacy bundled markdown files (repository root)
 ### Routing Structure
 
 ```
-/wizard/                           # Legacy entry point (redirects based on context)
-/wizard/pre-wizard                 # Pre-invite phase entry (idx=0)
-/wizard/pre-wizard/<idx>           # Pre-invite phase steps
-/wizard/pre-wizard/complete        # Pre-invite completion (redirects to join page)
-/wizard/post-wizard                # Post-invite phase entry (idx=0)
-/wizard/post-wizard/<idx>          # Post-invite phase steps
-/wizard/complete                   # Post-invite completion page
-/wizard/<server>/<idx>             # Preview mode (admin/testing)
-/wizard/combo/<category>           # Multi-server invitations (category entry)
-/wizard/combo/<category>/<idx>     # Multi-server invitations with step index
-/wizard/bundle/<idx>               # Bundle-specific wizard steps
+/wizard/                                  # Legacy entry point (redirects based on context)
+/wizard/pre-wizard                        # Pre-invite phase entry (idx=0)
+/wizard/pre-wizard/<idx>                  # Pre-invite phase steps
+/wizard/pre-wizard/complete               # Pre-invite completion (redirects to join page)
+/wizard/post-wizard                       # Post-invite phase entry (idx=0)
+/wizard/post-wizard/<idx>                 # Post-invite phase steps
+/wizard/complete                          # Post-invite completion page
+/wizard/<server>/<idx>                    # Preview mode (admin/testing)
+/wizard/combo/<category>                  # Multi-server invitations (category entry)
+/wizard/combo/<category>/<idx>            # Multi-server invitations with step index
+/wizard/bundle/<idx>                      # Bundle-specific wizard steps
+/wizard/bundle-preview/<bundle_id>/<idx>  # Admin preview for custom bundles
 ```
 
 **Note:** Routes use `/wizard/` prefix (defined in blueprint). The `<category>` parameter
@@ -141,7 +152,11 @@ Flask sends custom headers on HTMX requests:
 resp.headers['X-Wizard-Idx'] = str(idx)
 resp.headers['X-Require-Interaction'] = 'true' | 'false'
 resp.headers['X-Wizard-Step-Phase'] = 'pre' | 'post' | ''
+resp.headers['X-Interactions'] = json.dumps(interactions_config)  # When interactions configured
 ```
+
+**Note:** The `X-Interactions` header is only sent when the step has interaction requirements
+configured in the `interactions` JSON column. It contains the serialized interaction config.
 
 ### Client State Storage
 
@@ -249,6 +264,20 @@ def _serve_wizard(server: str, idx: int, steps: list, phase: str,
                   current_step_phase: str | None = None):
     # ... build HTML content ...
 
+    # Extract interaction requirements from step
+    require_interaction = False
+    interactions_config = None
+    try:
+        require_interaction = bool(
+            getattr(post, "get", lambda _k, _d=None: None)("require", False)
+        )
+        interactions_config = getattr(post, "get", lambda _k, _d=None: None)(
+            "interactions", None
+        )
+    except Exception:
+        require_interaction = False
+        interactions_config = None
+
     # Smart template selection
     if not request.headers.get("HX-Request"):
         page = "wizard/frame.html"        # Initial load
@@ -261,18 +290,23 @@ def _serve_wizard(server: str, idx: int, steps: list, phase: str,
         idx=idx,
         max_idx=len(steps) - 1,
         server_type=server,
-        phase=phase,                      # NEW: Phase context
-        step_phase=display_phase,         # NEW: Current step phase
-        completion_url=completion_url,    # NEW: Completion redirect
-        completion_label=completion_label # NEW: Completion button text
+        phase=phase,                      # Phase context
+        step_phase=display_phase,         # Current step phase
+        completion_url=completion_url,    # Completion redirect
+        completion_label=completion_label,# Completion button text
+        require_interaction=require_interaction,
+        interactions_config=interactions_config
     )
 
     # Add headers for HTMX requests
     if request.headers.get("HX-Request"):
         resp = make_response(response)
         resp.headers['X-Wizard-Idx'] = str(idx)
-        resp.headers['X-Require-Interaction'] = 'true' | 'false'
-        resp.headers['X-Wizard-Step-Phase'] = display_phase or ''  # NEW
+        resp.headers['X-Require-Interaction'] = 'true' if require_interaction else 'false'
+        resp.headers['X-Wizard-Step-Phase'] = display_phase or ''
+        # Include interactions config for frontend handlers
+        if interactions_config:
+            resp.headers['X-Interactions'] = json.dumps(interactions_config)
         return resp
 
     return response
@@ -387,7 +421,15 @@ class WizardStep(db.Model):
     title = db.Column(db.String, nullable=True)          # Optional title
     markdown = db.Column(db.Text, nullable=False)        # Step content
     requires = db.Column(db.JSON, nullable=True)         # Settings requirements
-    require_interaction = db.Column(db.Boolean, default=False)  # Block Next button
+
+    # DEPRECATED: Legacy boolean for backward compatibility
+    # Use `interactions` JSON column for new interaction configurations
+    require_interaction = db.Column(db.Boolean, default=False, nullable=True)
+
+    # Flexible interaction configuration stored as JSON
+    # Each key (click, time, tos, text_input, quiz) is optional
+    # See "Modular Interaction System" section for details
+    interactions = db.Column(db.JSON, nullable=True)
 
     # Unique constraint: (server_type, category, position)
 ```
@@ -416,6 +458,142 @@ class WizardBundleStep(db.Model):
     position = db.Column(db.Integer, nullable=False)
 
     # Unique constraint: (bundle_id, position)
+```
+
+---
+
+## Modular Interaction System
+
+The modular interaction system (`app/interactions.py`) provides strongly-typed, combinable
+interaction requirements that users must satisfy before proceeding to the next wizard step.
+This replaces the legacy `require_interaction` boolean with a flexible JSON-based configuration.
+
+### Interaction Types
+
+| Type | Description | Key Attributes |
+|------|-------------|----------------|
+| `ClickInteraction` | User must click a link/button in content | `target_selector`, `description` |
+| `TimeInteraction` | User must wait N seconds (countdown) | `duration_seconds`, `show_countdown` |
+| `TosInteraction` | User must accept Terms of Service | `tos_url`, `checkbox_label` |
+| `TextInputInteraction` | User must answer correctly | `question`, `expected_answer`, `case_sensitive` |
+| `QuizInteraction` | Multi-question quiz | `questions[]`, `passing_score` |
+
+### StepInteractions Container
+
+The `StepInteractions` dataclass aggregates all interaction types for a single step:
+
+```python
+@dataclass
+class StepInteractions:
+    """Container for all interaction configurations on a wizard step."""
+    click: ClickInteraction | None = None
+    time: TimeInteraction | None = None
+    tos: TosInteraction | None = None
+    text_input: TextInputInteraction | None = None
+    quiz: QuizInteraction | None = None
+
+    def is_empty(self) -> bool:
+        """Check if any interaction is configured."""
+        return all(v is None for v in [self.click, self.time, self.tos, ...])
+```
+
+### JSON Structure Example
+
+The `interactions` column in `WizardStep` stores JSON like:
+
+```json
+{
+  "click": {
+    "enabled": true,
+    "target_selector": "a, button",
+    "description": "Click the download link to continue"
+  },
+  "time": {
+    "enabled": true,
+    "duration_seconds": 30,
+    "show_countdown": true
+  }
+}
+```
+
+Multiple interaction types can be combined - all enabled types must be satisfied before
+the user can proceed to the next step.
+
+---
+
+## Wizard Presets
+
+The `app/services/wizard_presets.py` module provides preset templates for common integrations,
+allowing administrators to quickly add wizard steps through the Multi-Action create button.
+
+### Available Presets
+
+| Preset ID | Name | Description |
+|-----------|------|-------------|
+| `discord_community` | Discord Community | Embeds a Discord server widget for community invitations |
+| `overseerr_requests` | Overseerr/Ombi Requests | Links to request system for media requests |
+
+### Usage
+
+```python
+from app.services.wizard_presets import get_available_presets, create_step_from_preset
+
+# Get all available presets
+presets = get_available_presets()
+
+# Create a step from a preset (returns dict for WizardStep creation)
+step_data = create_step_from_preset("discord_community", server_type="plex")
+```
+
+Presets include placeholder variables (e.g., `{discord_id}`, `{overseerr_url}`) that
+are replaced with actual values from the server configuration when rendered.
+
+---
+
+## Wizard Widgets
+
+The `app/services/wizard_widgets.py` module enables embedding dynamic content in wizard steps
+using a special syntax. Widgets are processed during markdown rendering.
+
+### Widget Syntax
+
+```markdown
+{{ widget:widget_name param1="value1" param2="value2" }}
+```
+
+### Available Widgets
+
+| Widget | Description | Parameters |
+|--------|-------------|------------|
+| `recently_added_media` | Carousel of recently added items | `limit` (default: 10) |
+| `button` | Styled action button | `url`, `text` |
+
+### Card Delimiter Syntax
+
+Cards use a special delimiter syntax for styled content blocks:
+
+```markdown
+|||
+# Card Title
+This is card content with **markdown** support.
+|||
+```
+
+### Example Usage
+
+```markdown
+## Welcome to Your Media Library
+
+Here's what's been added recently:
+
+{{ widget:recently_added_media limit=6 }}
+
+|||
+### Getting Started
+Click the button below to open the app.
+
+{{ widget:button url="https://app.example.com" text="🎬 Open App" }}
+|||
 ```
 
 ---
