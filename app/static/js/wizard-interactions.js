@@ -466,8 +466,8 @@ class QuizInteractionHandler extends InteractionHandler {
   renderOptions(question) {
     if (question.type === "true_false") {
       return `
-        <button type="button" class="quiz-option w-full text-left px-4 py-3 border dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-value="true">True</button>
-        <button type="button" class="quiz-option w-full text-left px-4 py-3 border dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-value="false">False</button>
+        <button type="button" class="quiz-option w-full text-left px-4 py-3 border dark:border-gray-600 rounded-lg text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-value="true">True</button>
+        <button type="button" class="quiz-option w-full text-left px-4 py-3 border dark:border-gray-600 rounded-lg text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-value="false">False</button>
       `;
     }
 
@@ -476,7 +476,7 @@ class QuizInteractionHandler extends InteractionHandler {
     return options
       .map(
         (opt, i) => `
-        <button type="button" class="quiz-option w-full text-left px-4 py-3 border dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-value="${opt}">${opt}</button>
+        <button type="button" class="quiz-option w-full text-left px-4 py-3 border dark:border-gray-600 rounded-lg text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-value="${opt}">${opt}</button>
       `
       )
       .join("");
