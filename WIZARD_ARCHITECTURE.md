@@ -1,7 +1,7 @@
 # Wizard Architecture Documentation
 
-> **Version:** 3.1 - Two-Phase Wizard System with Bundles
-> **Last Updated:** 2025-12-08
+> **Version:** 3.2 - Two-Phase Wizard System with Bundles and Modular Interactions
+> **Last Updated:** 2025-12-11
 
 ## Overview
 
@@ -77,7 +77,12 @@ app/services/
 ├── wizard_export_import.py # Export/import wizard configurations
 ├── wizard_migration.py     # Database migrations for wizard steps
 ├── wizard_presets.py       # Preset templates for common integrations
-└── wizard_widgets.py       # Dynamic content widgets for wizard steps
+├── wizard_widgets.py       # Dynamic content widgets for wizard steps
+└── invitation_flow/        # Invitation processing pipeline
+    ├── manager.py          # InvitationFlowManager - main orchestrator
+    ├── workflows.py        # WorkflowFactory and server-specific workflows
+    ├── strategies.py       # Join strategies for different server types
+    └── results.py          # InvitationResult and ProcessingStatus
 
 app/forms/
 └── wizard.py           # WTForms for wizard step CRUD operations
@@ -416,7 +421,8 @@ Stores wizard step content in the database (replaces legacy markdown files):
 class WizardStep(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     server_type = db.Column(db.String, nullable=False)   # plex, jellyfin, etc.
-    category = db.Column(db.String, default="post_invite")  # pre_invite | post_invite
+    category = db.Column(db.String, nullable=False,      # pre_invite | post_invite
+                         default="post_invite", server_default="post_invite")
     position = db.Column(db.Integer, nullable=False)     # Sort order (0-indexed)
     title = db.Column(db.String, nullable=True)          # Optional title
     markdown = db.Column(db.Text, nullable=False)        # Step content
@@ -431,7 +437,21 @@ class WizardStep(db.Model):
     # See "Modular Interaction System" section for details
     interactions = db.Column(db.JSON, nullable=True)
 
+    created_at = db.Column(db.DateTime, nullable=False)  # Auto-set on creation
+    updated_at = db.Column(db.DateTime, nullable=False)  # Auto-updated on change
+
     # Unique constraint: (server_type, category, position)
+
+    # ── Interaction helpers ──
+    @property
+    def step_interactions(self) -> StepInteractions:
+        """Get typed interaction configuration from JSON."""
+        return StepInteractions.from_dict(self.interactions)
+
+    @step_interactions.setter
+    def step_interactions(self, value: StepInteractions):
+        """Set interaction configuration from typed object."""
+        self.interactions = value.to_dict() if value else None
 ```
 
 ### WizardBundle
@@ -472,35 +492,53 @@ This replaces the legacy `require_interaction` boolean with a flexible JSON-base
 
 | Type | Description | Key Attributes |
 |------|-------------|----------------|
-| `ClickInteraction` | User must click a link/button in content | `target_selector`, `description` |
-| `TimeInteraction` | User must wait N seconds (countdown) | `duration_seconds`, `show_countdown` |
-| `TosInteraction` | User must accept Terms of Service | `tos_url`, `checkbox_label` |
-| `TextInputInteraction` | User must answer correctly | `question`, `expected_answer`, `case_sensitive` |
-| `QuizInteraction` | Multi-question quiz | `questions[]`, `passing_score` |
+| `ClickInteraction` | User must click a link/button in content | `enabled`, `target_selector`, `description` |
+| `TimeInteraction` | User must wait N seconds (countdown) | `enabled`, `duration_seconds`, `show_countdown` |
+| `TosInteraction` | User must accept Terms of Service | `enabled`, `content_markdown`, `checkbox_label`, `require_scroll`, `version` |
+| `TextInputInteraction` | User must answer correctly | `enabled`, `question`, `answers[]`, `case_sensitive`, `placeholder`, `error_message` |
+| `QuizInteraction` | Multi-question quiz | `enabled`, `questions[]`, `pass_threshold`, `shuffle_questions`, `show_explanations` |
 
 ### StepInteractions Container
 
 The `StepInteractions` dataclass aggregates all interaction types for a single step:
 
 ```python
-@dataclass
+@dataclass(slots=True)
 class StepInteractions:
-    """Container for all interaction configurations on a wizard step."""
+    """Container for all interaction configurations on a wizard step.
+
+    Presence of a non-None interaction with enabled=True indicates it is active.
+    All enabled interactions must be satisfied for the user to proceed.
+    """
     click: ClickInteraction | None = None
     time: TimeInteraction | None = None
     tos: TosInteraction | None = None
     text_input: TextInputInteraction | None = None
     quiz: QuizInteraction | None = None
 
-    def is_empty(self) -> bool:
-        """Check if any interaction is configured."""
-        return all(v is None for v in [self.click, self.time, self.tos, ...])
+    def has_any_enabled(self) -> bool:
+        """Check if any interaction is enabled."""
+        ...
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize all enabled interactions to JSON-compatible dict."""
+        ...
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize from JSON dict."""
+        ...
+
+    def validate(self) -> list[str]:
+        """Validate all enabled interactions."""
+        ...
 ```
 
-### JSON Structure Example
+### JSON Structure Examples
 
 The `interactions` column in `WizardStep` stores JSON like:
 
+**Click + Time Combined:**
 ```json
 {
   "click": {
@@ -512,6 +550,33 @@ The `interactions` column in `WizardStep` stores JSON like:
     "enabled": true,
     "duration_seconds": 30,
     "show_countdown": true
+  }
+}
+```
+
+**Terms of Service:**
+```json
+{
+  "tos": {
+    "enabled": true,
+    "content_markdown": "# Terms of Service\n\nBy using this service...",
+    "checkbox_label": "I agree to the Terms of Service",
+    "require_scroll": true,
+    "version": "1.0"
+  }
+}
+```
+
+**Text Input Verification:**
+```json
+{
+  "text_input": {
+    "enabled": true,
+    "question": "What is the server name?",
+    "answers": ["Plex", "plex", "PLEX"],
+    "case_sensitive": false,
+    "placeholder": "Enter the server name",
+    "error_message": "Incorrect. Hint: It starts with 'P'"
   }
 }
 ```
@@ -536,17 +601,20 @@ allowing administrators to quickly add wizard steps through the Multi-Action cre
 ### Usage
 
 ```python
-from app.services.wizard_presets import get_available_presets, create_step_from_preset
+from app.services.wizard_presets import get_available_presets, create_step_from_preset, get_preset_title
 
 # Get all available presets
-presets = get_available_presets()
+presets = get_available_presets()  # Returns list[WizardPreset]
 
-# Create a step from a preset (returns dict for WizardStep creation)
-step_data = create_step_from_preset("discord_community", server_type="plex")
+# Create step content from a preset (returns rendered markdown string)
+markdown_content = create_step_from_preset("discord_community", discord_id="YOUR_SERVER_ID")
+
+# Get the default title for a preset
+title = get_preset_title("discord_community")
 ```
 
 Presets include placeholder variables (e.g., `{discord_id}`, `{overseerr_url}`) that
-are replaced with actual values from the server configuration when rendered.
+are replaced with values passed as keyword arguments when calling `create_step_from_preset()`.
 
 ---
 
@@ -565,8 +633,8 @@ using a special syntax. Widgets are processed during markdown rendering.
 
 | Widget | Description | Parameters |
 |--------|-------------|------------|
-| `recently_added_media` | Carousel of recently added items | `limit` (default: 10) |
-| `button` | Styled action button | `url`, `text` |
+| `recently_added_media` | Carousel of recently added items | `limit` (default: 6) |
+| `button` | Styled action button | `url`, `text` (required) |
 
 ### Card Delimiter Syntax
 
