@@ -201,7 +201,8 @@ class TosInteractionHandler extends InteractionHandler {
     super(config, onSatisfied, onUnsatisfied);
     this.requireScroll = config.require_scroll !== false;
     this.checkboxLabel = config.checkbox_label || "I have read and agree to the terms";
-    this.content = config.content_markdown || "";
+    // Prefer pre-rendered HTML, fall back to raw markdown for backwards compatibility
+    this.content = config.content_html || config.content_markdown || "";
     this.scrollHandler = null;
     this.hasScrolledToBottom = false;
     this.tosElement = null;
@@ -236,9 +237,9 @@ class TosInteractionHandler extends InteractionHandler {
     }
 
     this.tosElement = document.createElement("div");
-    this.tosElement.className = "border dark:border-gray-700 rounded-lg overflow-hidden";
+    this.tosElement.className = "w-full border dark:border-gray-700 rounded-lg overflow-hidden";
     this.tosElement.innerHTML = `
-      <div class="tos-content max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-800 text-sm prose dark:prose-invert prose-sm">
+      <div class="tos-content max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-800 text-sm prose dark:prose-invert prose-sm max-w-none">
         ${this.content || "<p>Terms of Service content</p>"}
       </div>
       <div class="p-3 bg-white dark:bg-gray-900 border-t dark:border-gray-700">

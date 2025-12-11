@@ -320,15 +320,16 @@ function attachInteractionGating(root = document) {
   if (!requiresInteraction) return;
 
   // Check for new modular interactions config
+  // The data-interactions attribute is on #wizard-content (set in _content.html)
   // Handle case where root itself is the wizard-content (e.g., from htmx:load event)
-  const wizardWrapper = root.querySelector('#wizard-wrapper') ||
-                        root.querySelector('#wizard-content') ||
-                        (root.matches && root.matches('#wizard-content, #wizard-wrapper') ? root : null);
+  const wizardContent = root.querySelector('#wizard-content') ||
+                        (root.matches && root.matches('#wizard-content') ? root : null) ||
+                        document.querySelector('#wizard-content');
   let interactionsConfig = null;
 
-  if (wizardWrapper && wizardWrapper.dataset.interactions) {
+  if (wizardContent && wizardContent.dataset.interactions) {
     try {
-      interactionsConfig = JSON.parse(wizardWrapper.dataset.interactions);
+      interactionsConfig = JSON.parse(wizardContent.dataset.interactions);
     } catch (e) {
       console.warn('Failed to parse interactions config:', e);
     }
