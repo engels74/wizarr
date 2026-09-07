@@ -9,7 +9,7 @@ def refresh(root):
     template = root / "messages.pot"
     previous = template.read_bytes() if template.exists() else None
     subprocess.run(
-        [
+        [  # noqa: S607 — frozen uv environment.
             "pybabel",
             "extract",
             "-F",
@@ -19,7 +19,7 @@ def refresh(root):
             "-o",
             "messages.pot",
             ".",
-        ],  # noqa: S607 — frozen uv environment.
+        ],
         cwd=root,
         check=True,
     )
