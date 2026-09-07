@@ -6,7 +6,8 @@ from app.models import Settings
 
 def require_onboarding():
     if (
-        request.path.startswith("/setup")
+        request.path == "/health"
+        or request.path.startswith("/setup")
         or request.path.startswith("/static")
         or request.path.startswith("/settings")
         or request.path.startswith("/api")
