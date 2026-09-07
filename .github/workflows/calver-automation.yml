@@ -1,64 +1,65 @@
 name: CalVer Automation
-
-on:
-  push:
-    branches:
-      - main
-      - 'release/**'  # Trigger on release branch pushes to update PR description
-  workflow_dispatch:
-    inputs:
-      dry-run:
-        description: 'Run in dry-run mode (no PR creation)'
-        type: boolean
-        default: false
-
-env:
-  PYTHON_VERSION: '3.12'
-
 jobs:
   release-please:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    if: github.repository_owner == 'wizarrrr'
+    runs-on: ubuntu-24.04
+    if: github.repository == 'wizarrrr/wizarr' && (github.repository_owner == 'wizarrrr')
     permissions:
       contents: write
       pull-requests: write
-      
     outputs:
       release-created: ${{ steps.release.outputs.release-created }}
       tag-name: ${{ steps.release.outputs.tag-name }}
       pr-number: ${{ steps.release.outputs.pr-number }}
-    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          fetch-depth: 0  # Need full history for changelog
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: pyproject.toml
-
-      - name: Generate CalVer Release
-        id: release
-        uses: ./.github/actions/calver-automation
-        with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          dry-run: ${{ inputs.dry-run || 'false' }}
-      
-      - name: Summary
-        if: steps.release.outputs.release-created == 'true'
-        run: |
-          echo "🚀 **Release PR Created!**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ steps.release.outputs.tag-name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release PR**: #${{ steps.release.outputs.pr-number }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Workflow" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Review and merge Release PR** when ready" >> $GITHUB_STEP_SUMMARY
-          echo "2. **GitHub Release** created automatically" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Docker images** built and pushed with :latest and version tags" >> $GITHUB_STEP_SUMMARY
+    - name: Checkout
+      uses: actions/checkout@v7.0.1
+      with:
+        token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Install uv
+      uses: astral-sh/setup-uv@v10.0.1
+      with:
+        version: 0.12.10
+        enable-cache: true
+    - name: Set up Python
+      uses: actions/setup-python@v7.0.0
+      with:
+        python-version: '3.13'
+    - name: Generate CalVer Release
+      id: release
+      uses: ./.github/actions/calver-automation
+      with:
+        token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        dry-run: ${{ inputs.dry-run || 'false' }}
+    - name: Summary
+      if: steps.release.outputs.release-created == 'true'
+      run: |
+        {
+          echo "🚀 **Release PR Created!**"
+          echo ""
+          echo "- **Version**: ${{ steps.release.outputs.tag-name }}"
+          echo "- **Release PR**: #${{ steps.release.outputs.pr-number }}"
+          echo ""
+          echo "## Workflow"
+          echo "1. **Review and merge Release PR** when ready"
+          echo "2. **GitHub Release** created automatically"
+          echo "3. **Docker images** built and pushed with :latest and version tags"
+        } >> "$GITHUB_STEP_SUMMARY"
+    timeout-minutes: 30
+'on':
+  push:
+    branches:
+    - main
+    - release/**
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run in dry-run mode (no PR creation)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: calver-automation.yml-${{ github.ref }}
+  cancel-in-progress: false

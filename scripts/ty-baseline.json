@@ -1,0 +1,982 @@
+[
+  [
+    "app/__init__.py",
+    "unresolved-attribute",
+    "major",
+    "unresolved-attribute: Module `plus` has no member `enable_plus_features`",
+    "plus.enable_plus_features()"
+  ],
+  [
+    "app/__init__.py",
+    "unresolved-attribute",
+    "major",
+    "unresolved-attribute: Module `plus` has no member `initialize_plus_features`",
+    "plus.initialize_plus_features(app)"
+  ],
+  [
+    "app/activity/api/blueprint.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `joinedload` is incorrect: Expected `Literal[\"*\"] | QueryableAttribute[Any]`, found `Unknown | RelationshipProperty[Any]`",
+    "joinedload(HistoricalImportJob.server)"
+  ],
+  [
+    "app/activity/api/blueprint.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "def _(x):  # type: ignore[no-redef]"
+  ],
+  [
+    "app/activity/api/helpers.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `joinedload` is incorrect: Expected `Literal[\"*\"] | QueryableAttribute[Any]`, found `Unknown | RelationshipProperty[Any]`",
+    "joinedload(HistoricalImportJob.server)"
+  ],
+  [
+    "app/activity/api/helpers.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "def _(x):  # type: ignore[no-redef]"
+  ],
+  [
+    "app/activity/monitoring/session_manager.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "sessions = client.server.sessions()  # type: ignore[attr-defined]"
+  ],
+  [
+    "app/blueprints/admin/routes.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `get_client_for_media_server` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "client = get_client_for_media_server(user.server)"
+  ],
+  [
+    "app/blueprints/admin/routes.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `get_client_for_media_server` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "client = get_client_for_media_server(user.server)"
+  ],
+  [
+    "app/blueprints/wizard/routes.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `joinedload` is incorrect: Expected `Literal[\"*\"] | QueryableAttribute[Any]`, found `Unknown | RelationshipProperty[Any]`",
+    ".options(joinedload(WizardBundleStep.step))"
+  ],
+  [
+    "app/blueprints/wizard/routes.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `joinedload` is incorrect: Expected `Literal[\"*\"] | QueryableAttribute[Any]`, found `Unknown | RelationshipProperty[Any]`",
+    ".options(joinedload(WizardBundleStep.step))"
+  ],
+  [
+    "app/blueprints/wizard/routes.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "servers = list(invitation.servers)  # type: ignore"
+  ],
+  [
+    "app/blueprints/wizard_admin/routes.py",
+    "not-iterable",
+    "major",
+    "not-iterable: Object of type `Unknown | RelationshipProperty[Any]` may not be iterable",
+    "existing_ids = {bs.step_id for bs in bundle.steps}"
+  ],
+  [
+    "app/context_processors.py",
+    "unresolved-attribute",
+    "major",
+    "unresolved-attribute: Module `plus` has no member `is_plus_enabled`",
+    "is_plus_enabled = plus.is_plus_enabled()"
+  ],
+  [
+    "app/extensions.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "login_manager.login_view = \"auth.login\"  # type: ignore[assignment]"
+  ],
+  [
+    "app/jinja_filters.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `len` is incorrect: Expected `Sized`, found `(Unknown & str & ~AlwaysFalsy) | datetime`",
+    "return date_value[:16] if len(date_value) > 16 else date_value"
+  ],
+  [
+    "app/jinja_filters.py",
+    "invalid-return-type",
+    "major",
+    "invalid-return-type: Return type does not match returned value: expected `str`, found `@Todo | datetime`",
+    "return date_value[:16] if len(date_value) > 16 else date_value"
+  ],
+  [
+    "app/jinja_filters.py",
+    "not-subscriptable",
+    "major",
+    "not-subscriptable: Cannot subscript object of type `datetime` with no `__getitem__` method",
+    "return date_value[:16] if len(date_value) > 16 else date_value"
+  ],
+  [
+    "app/models.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to bound method `__init__` is incorrect: Expected `Iterable[Unknown]`, found `Unknown | RelationshipProperty[Any]`",
+    "return len(list(self.users))"
+  ],
+  [
+    "app/models.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to bound method `__init__` is incorrect: Expected `Iterable[Unknown]`, found `Unknown | RelationshipProperty[Any]`",
+    "return list(self.users)"
+  ],
+  [
+    "app/models.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to bound method `__init__` is incorrect: Expected `Iterable[Unknown]`, found `Unknown | RelationshipProperty[Any]`",
+    "return user in list(self.users)"
+  ],
+  [
+    "app/models.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to bound method `__init__` is incorrect: Expected `Iterable[Unknown]`, found `Unknown | RelationshipProperty[Any]`",
+    "users_list = list(self.users)"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class ActivitySession(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class ActivitySnapshot(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class AdminAccount(db.Model, UserMixin):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class ApiKey(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class Connection(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class ExpiredUser(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class HistoricalImportJob(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class Identity(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class Invitation(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class Library(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class MediaServer(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class Notification(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class PasswordResetToken(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class Settings(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class User(db.Model, UserMixin):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class WebAuthnCredential(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class WizardBundle(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class WizardBundleStep(db.Model):"
+  ],
+  [
+    "app/models.py",
+    "unsupported-base",
+    "minor",
+    "unsupported-base: Unsupported class base with type `Unknown | type[_FSAModel]`",
+    "class WizardStep(db.Model):"
+  ],
+  [
+    "app/services/activity/analytics.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "from app.extensions import db  # type: ignore"
+  ],
+  [
+    "app/services/activity/identity_resolution.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `joinedload` is incorrect: Expected `Literal[\"*\"] | QueryableAttribute[Any]`, found `Unknown | RelationshipProperty[Any]`",
+    ".options(joinedload(User.identity))"
+  ],
+  [
+    "app/services/activity/identity_resolution.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "from app.extensions import db  # type: ignore"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "base_query = db.session.query(ActivitySession).filter(  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.add(session)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.add(snapshot)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.commit()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.flush()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.query(ActivitySession)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.query(ActivitySession)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.query(ActivitySession)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.rollback()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.rollback()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.rollback()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.rollback()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "from app.extensions import db  # type: ignore"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "if prev_timestamp.tzinfo is None:  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "prev_timestamp = prev_timestamp.astimezone(UTC)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/ingestion.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "prev_timestamp = prev_timestamp.replace(tzinfo=UTC)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.commit()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.commit()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.commit()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.query(ActivitySession)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.query(ActivitySession)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.query(ActivitySession)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.rollback()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.rollback()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "db.session.rollback()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "from app.extensions import db  # type: ignore"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "if updated_at.tzinfo is None:  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "if updated_at.tzinfo is None:  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "server = db.session.query(MediaServer).filter_by(id=server_id).first()  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "updated_at = updated_at.replace(tzinfo=UTC)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/maintenance.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "updated_at = updated_at.replace(tzinfo=UTC)  # type: ignore[union-attr]"
+  ],
+  [
+    "app/services/activity/queries.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "from app.extensions import db  # type: ignore"
+  ],
+  [
+    "app/services/companions/audiobookrequest.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `invite_user`: Definition is incompatible with `CompanionClient.invite_user`",
+    "def invite_user("
+  ],
+  [
+    "app/services/companions/ombi.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `invite_user`: Definition is incompatible with `CompanionClient.invite_user`",
+    "def invite_user("
+  ],
+  [
+    "app/services/companions/overseerr.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `delete_user`: Definition is incompatible with `CompanionClient.delete_user`",
+    "def delete_user(self, _username: str, _connection: Connection) -> dict[str, str]:"
+  ],
+  [
+    "app/services/companions/overseerr.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `invite_user`: Definition is incompatible with `CompanionClient.invite_user`",
+    "def invite_user("
+  ],
+  [
+    "app/services/companions/overseerr.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `test_connection`: Definition is incompatible with `CompanionClient.test_connection`",
+    "def test_connection(self, _connection: Connection) -> dict[str, str]:"
+  ],
+  [
+    "app/services/invitation_flow/manager.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `joinedload` is incorrect: Expected `Literal[\"*\"] | QueryableAttribute[Any]`, found `Unknown | RelationshipProperty[Any]`",
+    "WizardBundleStep.query.options(joinedload(WizardBundleStep.step))"
+  ],
+  [
+    "app/services/invitation_flow/manager.py",
+    "invalid-return-type",
+    "major",
+    "invalid-return-type: Return type does not match returned value: expected `list[MediaServer]`, found `list[Unknown | (RelationshipProperty[Any] & ~AlwaysFalsy)]`",
+    "return plex_servers + other_servers"
+  ],
+  [
+    "app/services/invitation_flow/server_registry.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `create_account`: Definition is incompatible with `ServerAccountManager.create_account`",
+    "def create_account("
+  ],
+  [
+    "app/services/invitation_flow/strategies.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `authenticate`: Definition is incompatible with `AuthenticationStrategy.authenticate`",
+    "def authenticate("
+  ],
+  [
+    "app/services/invitation_flow/strategies.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `authenticate`: Definition is incompatible with `AuthenticationStrategy.authenticate`",
+    "def authenticate("
+  ],
+  [
+    "app/services/invitation_flow/workflows.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "invitation.used_by = user  # type: ignore[assignment]"
+  ],
+  [
+    "app/services/invitation_manager.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "invitation.used_by = user  # type: ignore[assignment]"
+  ],
+  [
+    "app/services/invites.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "from sqlalchemy import and_  # type: ignore"
+  ],
+  [
+    "app/services/invites.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "if row and all(r.used for r in row) and not inv.unlimited:  # type: ignore[attr-defined]"
+  ],
+  [
+    "app/services/media/audiobookshelf.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_recent_items`: Definition is incompatible with `MediaClient.get_recent_items`",
+    "def get_recent_items("
+  ],
+  [
+    "app/services/media/audiobookshelf.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, user_id: str) -> MediaUserDetails:"
+  ],
+  [
+    "app/services/media/audiobookshelf.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `update_user_libraries`: Definition is incompatible with `MediaClient.update_user_libraries`",
+    "def update_user_libraries("
+  ],
+  [
+    "app/services/media/audiobookshelf.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `update_user_permissions`: Definition is incompatible with `MediaClient.update_user_permissions`",
+    "def update_user_permissions("
+  ],
+  [
+    "app/services/media/audiobookshelf.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "def _headers(self) -> dict[str, str]:  # type: ignore[override]"
+  ],
+  [
+    "app/services/media/client_base.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "cls._server_type = name  # type: ignore[attr-defined]"
+  ],
+  [
+    "app/services/media/client_base.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "self.server_id: int = row.id  # type: ignore[attr-defined]"
+  ],
+  [
+    "app/services/media/client_base.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "self.token = row.api_key  # type: ignore[attr-defined]"
+  ],
+  [
+    "app/services/media/client_base.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "self.url = row.url  # type: ignore[attr-defined]"
+  ],
+  [
+    "app/services/media/drop.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `disable_user`: Definition is incompatible with `MediaClient.disable_user`",
+    "def disable_user(self, _user_id: str) -> bool:"
+  ],
+  [
+    "app/services/media/drop.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `enable_user`: Definition is incompatible with `MediaClient.enable_user`",
+    "def enable_user(self, _user_id: str) -> bool:"
+  ],
+  [
+    "app/services/media/drop.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, user_id: str) -> \"MediaUserDetails\":"
+  ],
+  [
+    "app/services/media/drop.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `scan_libraries`: Definition is incompatible with `MediaClient.scan_libraries`",
+    "def scan_libraries("
+  ],
+  [
+    "app/services/media/emby.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `_password_for_db`: Definition is incompatible with `JellyfinClient._password_for_db`",
+    "def _password_for_db(self, _password: str) -> str:"
+  ],
+  [
+    "app/services/media/jellyfin.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_recent_items`: Definition is incompatible with `MediaClient.get_recent_items`",
+    "def get_recent_items("
+  ],
+  [
+    "app/services/media/jellyfin.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, jf_id: str) -> \"MediaUserDetails\":"
+  ],
+  [
+    "app/services/media/jellyfin.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `reset_password`: Definition is incompatible with `MediaClient.reset_password`",
+    "def reset_password(self, user_id: str, new_password: str) -> bool:"
+  ],
+  [
+    "app/services/media/jellyfin.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `update_user_libraries`: Definition is incompatible with `MediaClient.update_user_libraries`",
+    "def update_user_libraries("
+  ],
+  [
+    "app/services/media/jellyfin.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `update_user_permissions`: Definition is incompatible with `MediaClient.update_user_permissions`",
+    "def update_user_permissions("
+  ],
+  [
+    "app/services/media/jellyfin.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "def _headers(self) -> dict[str, str]:  # type: ignore[override]"
+  ],
+  [
+    "app/services/media/kavita.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `enable_user`: Definition is incompatible with `MediaClient.enable_user`",
+    "def enable_user(self, _user_id: str) -> bool:"
+  ],
+  [
+    "app/services/media/kavita.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, username: str) -> \"MediaUserDetails\":"
+  ],
+  [
+    "app/services/media/komga.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `enable_user`: Definition is incompatible with `MediaClient.enable_user`",
+    "def enable_user(self, _user_id: str) -> bool:"
+  ],
+  [
+    "app/services/media/komga.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_recent_items`: Definition is incompatible with `MediaClient.get_recent_items`",
+    "def get_recent_items(self, limit: int = 6) -> list[dict[str, str]]:"
+  ],
+  [
+    "app/services/media/komga.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, user_id: str) -> \"MediaUserDetails\":"
+  ],
+  [
+    "app/services/media/navidrome.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `disable_user`: Definition is incompatible with `MediaClient.disable_user`",
+    "def disable_user(self, _user_id: str) -> bool:"
+  ],
+  [
+    "app/services/media/navidrome.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `enable_user`: Definition is incompatible with `MediaClient.enable_user`",
+    "def enable_user(self, _user_id: str) -> bool:"
+  ],
+  [
+    "app/services/media/navidrome.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, username: str) -> MediaUserDetails:"
+  ],
+  [
+    "app/services/media/plex.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `_do_join`: Definition is incompatible with `MediaClient._do_join`",
+    "def _do_join("
+  ],
+  [
+    "app/services/media/plex.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `enable_user`: Definition is incompatible with `MediaClient.enable_user`",
+    "def enable_user(self, _user_id: str) -> bool:"
+  ],
+  [
+    "app/services/media/plex.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_recent_items`: Definition is incompatible with `MediaClient.get_recent_items`",
+    "def get_recent_items("
+  ],
+  [
+    "app/services/media/plex.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, db_id: int) -> \"MediaUserDetails\":"
+  ],
+  [
+    "app/services/media/plex.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `update_user_libraries`: Definition is incompatible with `MediaClient.update_user_libraries`",
+    "def update_user_libraries("
+  ],
+  [
+    "app/services/media/plex.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `update_user_permissions`: Definition is incompatible with `MediaClient.update_user_permissions`",
+    "def update_user_permissions(self, email: str, permissions: dict[str, bool]) -> bool:"
+  ],
+  [
+    "app/services/media/romm.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_user_details`: Definition is incompatible with `MediaClient.get_user_details`",
+    "def get_user_details(self, user_id: str) -> MediaUserDetails:"
+  ],
+  [
+    "app/services/media/romm.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "batch = batch[\"items\"]  # type: ignore[assignment]"
+  ],
+  [
+    "app/services/media/romm.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "def _headers(self) -> dict[str, str]:  # type: ignore[override]"
+  ],
+  [
+    "app/services/media/romm.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "r = exc.response  # type: ignore[assignment]"
+  ],
+  [
+    "app/services/media/romm.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "r = exc.response  # type: ignore[assignment]"
+  ],
+  [
+    "app/services/media/romm.py",
+    "unused-ignore-comment",
+    "minor",
+    "unused-ignore-comment: Unused blanket `type: ignore` directive",
+    "return data.get(\"id\") or data.get(\"user\", {}).get(\"id\")  # type: ignore[return-value]"
+  ],
+  [
+    "app/services/media/service.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `_get_user_identifier` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "user_identifier = _get_user_identifier(user, user.server)"
+  ],
+  [
+    "app/services/media/service.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `_get_user_identifier` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "user_identifier = _get_user_identifier(user, user.server)"
+  ],
+  [
+    "app/services/media/service.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `_get_user_identifier` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "user_identifier = _get_user_identifier(user, user.server)"
+  ],
+  [
+    "app/services/media/service.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `get_client_for_media_server` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "client = get_client_for_media_server(user.server)"
+  ],
+  [
+    "app/services/media/service.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `get_client_for_media_server` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "client = get_client_for_media_server(user.server)"
+  ],
+  [
+    "app/services/media/service.py",
+    "invalid-argument-type",
+    "major",
+    "invalid-argument-type: Argument to function `get_client_for_media_server` is incorrect: Expected `MediaServer`, found `(Unknown & ~AlwaysFalsy) | (RelationshipProperty[Any] & ~AlwaysFalsy)`",
+    "client = get_client_for_media_server(user.server)"
+  ],
+  [
+    "app/services/wizard_widgets.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `get_data`: Definition is incompatible with `WizardWidget.get_data`",
+    "def get_data(self, server_type: str, **kwargs) -> dict[str, Any]:"
+  ],
+  [
+    "app/services/wizard_widgets.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `render`: Definition is incompatible with `WizardWidget.render`",
+    "def render(self, _server_type: str, **_kwargs) -> str:"
+  ],
+  [
+    "app/services/wizard_widgets.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `render`: Definition is incompatible with `WizardWidget.render`",
+    "def render(self, _server_type: str, context: dict | None = None, **kwargs) -> str:"
+  ],
+  [
+    "app/utils/session_cache.py",
+    "invalid-method-override",
+    "major",
+    "invalid-method-override: Invalid override of method `delete`: Definition is incompatible with `FileSystemCache.delete`",
+    "def delete(self, key):"
+  ]
+]

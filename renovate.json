@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>engels74/automation:default#v1.0.0",
+    "github>engels74/automation:mixed#v1.0.0"
+  ],
+  "forkProcessing": "enabled",
+  "packageRules": [
+    {
+      "description": "The inherited 140-diagnostic type backlog and live media API coverage need manual acceptance.",
+      "matchManagers": [
+        "pep621",
+        "uv",
+        "dockerfile",
+        "docker-compose"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Changes to the type checker require reviewing the exact baseline.",
+      "matchPackageNames": [
+        "ty"
+      ],
+      "dependencyDashboardApproval": true,
+      "automerge": false,
+      "groupName": null
+    }
+  ]
+}

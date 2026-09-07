@@ -1,34 +1,68 @@
-# .github/workflows/i18n-template.yml
-name: refresh-pot
-on:
-  schedule:
-    - cron: '13 03 * * *'   # once a night
-  workflow_dispatch: {}      # manual run
-
+name: Refresh translation templates
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+concurrency:
+  group: translation-refresh
+  cancel-in-progress: false
 jobs:
-  pot:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    # don’t run if the commit came from the Weblate bot
-    if: github.actor != 'weblate'
+  refresh:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+    - uses: actions/checkout@v7.0.1
+      with:
+        ref: ${{ github.event.repository.default_branch }}
+        persist-credentials: false
+    - uses: actions/setup-python@v7.0.0
+      with:
+        python-version: '3.13'
+    - uses: astral-sh/setup-uv@v10.0.1
+      with:
+        version: 0.12.10
+        enable-cache: true
+    - run: uv sync --frozen --dev
+    - name: Generate and validate translations
+      run: |-
+        uv run --frozen --dev python scripts/refresh-translations.py
+        uv run --frozen --dev pybabel compile --use-fuzzy -d app/translations
+    - name: Propose generated translations
+      id: translations
+      uses: peter-evans/create-pull-request@v8.1.1
+      with:
+        token: ${{ github.token }}
+        base: ${{ github.event.repository.default_branch }}
+        branch: fix/refresh-translations
+        add-paths: |-
+          messages.pot
+          app/translations/*/LC_MESSAGES/messages.po
+        commit-message: 'chore(i18n): refresh translation templates'
+        signoff: true
+        title: 'chore(i18n): refresh translation templates'
+        body: |-
+          Refresh the translation template and catalogs using frozen dependencies.
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: pyproject.toml 
-
-      - name: Re-generate POT and update PO files
-        run: |
-          uv run pybabel extract -F babel.cfg -k _l -o messages.pot .
-          uv run pybabel update -d app/translations -i messages.pot
-          if ! git diff --quiet messages.pot app/translations; then
-            git config user.name  "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add messages.pot app/translations
-            git commit -m "i18n: refresh POT and update PO files [skip ci]"
-            git push
+          Full CI is dispatched for this exact PR commit, including Python, template, browser, migration and container checks.
+    - name: Dispatch complete CI on the generated commit
+      if: steps.translations.outputs.pull-request-number != ''
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TRANSLATION_PR: ${{ steps.translations.outputs.pull-request-number }}
+        TRANSLATION_SHA: ${{ steps.translations.outputs.pull-request-head-sha }}
+      run: |
+        set -euo pipefail
+        for attempt in 1 2 3; do
+          if gh workflow run ci.yml --ref fix/refresh-translations \
+            -f pr-number="$TRANSLATION_PR" -f expected-head-sha="$TRANSLATION_SHA"; then
+            exit 0
           fi
+          sleep "$((attempt * 2))"
+        done
+        echo "::error::CI dispatch failed. Run ci.yml on fix/refresh-translations with pr-number=$TRANSLATION_PR and expected-head-sha=$TRANSLATION_SHA."
+        exit 1
+'on':
+  schedule:
+  - cron: 13 03 * * *
+  workflow_dispatch: {}

@@ -1,57 +1,141 @@
-name: wizarr-ci   # main “code + Docker” pipeline
-
-on:
+name: ci
+'on':
+  pull_request:
   push:
-    branches: [ main ]
-    paths-ignore:     # skip pure-translation commits
-      - 'app/translations/**'
-      - .github/
-  workflow_dispatch: {}   # manual run
-
-env:
-  PYTHON_VERSION: '3.13'
-  NODE_VERSION:  '20'
-
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: PR number for a generated update
+        type: string
+        default: ''
+      expected-head-sha:
+        description: Exact generated PR commit
+        type: string
+        default: ''
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
-  docker-dev:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      packages: write
-
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
-
-      # ─────── Generate uv.lock for reproducible builds ───────
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: engels74/automation/actions/dispatch-guard@v1.0.0
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Generate uv.lock
-        run: uv lock
-
-      # ─────── Docker bits ───────
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+          token: ${{ github.token }}
+          pr-number: ${{ inputs.pr-number }}
+          expected-head-sha: ${{ inputs.expected-head-sha }}
+  quality:
+    needs: guard
+    uses: engels74/automation/.github/workflows/python.yml@v1.0.0
+    with:
+      version: '3.13'
+      command: |
+        uv sync --frozen --dev
+        uv lock --check
+        uv run --frozen --dev ruff check .
+        uv run --frozen --dev ruff format --check .
+        uv run --frozen --dev djlint app/templates --check --profile=jinja
+        uv run --frozen --dev djlint app/templates --lint --profile=jinja
+        uv run --frozen --dev python scripts/check-types.py
+        uv run --frozen --dev python -m unittest discover -s scripts/tests -v
+  application:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      FLASK_SKIP_SCHEDULER: 'true'
+      WIZARR_DISABLE_SCHEDULER: 'true'
+    steps:
+      - uses: actions/checkout@v7.0.1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
-
-      - name: Build & push multi-arch :dev image
-        uses: useblacksmith/build-push-action@v2
+          persist-credentials: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.12.10'
+          enable-cache: true
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: app/static/package-lock.json
+      - name: Install frozen dependencies and build actual browser assets
+        run: |
+          uv sync --frozen --dev
+          npm ci --prefix app/static
+          npm --prefix app/static run build
+          uv run --frozen --dev pybabel compile --use-fuzzy -d app/translations
+      - name: Check JavaScript syntax
+        run: |
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(git ls-files -z 'app/static/js/*.js')
+      - name: Run unit and migration integration tests
+        run: uv run --frozen --dev pytest --ignore=tests/e2e
+      - name: Install Chromium
+        run: uv run --frozen --dev playwright install --with-deps --only-shell chromium
+      - name: Run existing browser invitation flows
+        run: uv run --frozen --dev pytest tests/e2e --tracing retain-on-failure --screenshot only-on-failure
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: browser-failures
+          path: test-results/
+          retention-days: 7
+      - run: git diff --exit-code HEAD
+  container:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4.3.0
+      - uses: docker/build-push-action@v7.3.0
         with:
           context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ github.repository_owner }}/wizarr:dev
+          load: true
+          tags: wizarr-ci:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke the production container with no external network
+        run: bash scripts/smoke-container.sh wizarr-ci:local
+      - run: git diff --exit-code HEAD
+  hygiene:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: j178/prek-action@v3.0.0
+        with:
+          prek-version: '0.5.2'
+          extra-args: --all-files --hook-stage manual
+        env:
+          SKIP: ruff,ruff-format,djlint-reformat-jinja
+      - run: git diff --exit-code HEAD
+  required:
+    name: ci / required
+    if: always()
+    needs: [guard, quality, application, container, hygiene]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: engels74/automation/actions/dispatch-guard@v1.0.0
+        with:
+          token: ${{ github.token }}
+          pr-number: ${{ inputs.pr-number }}
+          expected-head-sha: ${{ inputs.expected-head-sha }}
+      - uses: engels74/automation/actions/gate@v1.0.0
+        with:
+          needs: ${{ toJSON(needs) }}
+          required: guard quality application container hygiene

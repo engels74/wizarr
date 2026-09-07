@@ -430,3 +430,9 @@ CLAUDE.md.old
 
 # Internal documentation (AI-generated, not for version control)
 docs-internal/
+
+# Generated from app/static/package-lock.json by npm run build
+app/static/js/sortable.min.js
+app/static/js/tiny-mde.min.js
+app/static/css/tiny-mde.min.css
+test-results/

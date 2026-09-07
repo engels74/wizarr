@@ -53,3 +53,6 @@ app/static/css/tiny-mde.min.css
 .*
 !.dockerignore
 
+
+# Never copy host-built native npm dependencies into Alpine.
+**/node_modules

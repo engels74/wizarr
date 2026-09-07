@@ -1,10 +1,16 @@
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+  - repo: local
     hooks:
       - id: ruff
-        args: [--fix]
+        name: Locked Ruff lint
+        language: system
+        entry: uv run --frozen --dev ruff check --fix
+        types: [python]
       - id: ruff-format
+        name: Locked Ruff format
+        language: system
+        entry: uv run --frozen --dev ruff format
+        types: [python]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -13,24 +19,26 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
 
-  - repo: https://github.com/djlint/djLint
-    rev: v1.36.4
+  - repo: local
     hooks:
       - id: djlint-reformat-jinja
-        args: [--lint --reformat --format-css --format-js]
+        name: Locked Jinja format
+        language: system
+        entry: uv run --frozen --dev djlint --lint --reformat --profile=jinja
+        files: ^app/templates/.*\.html$
 
   - repo: local
     hooks:
       - id: pytest
         name: pytest
-        entry: uv run pytest
+        entry: uv run --frozen --dev pytest
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-push]
       - id: ty
         name: ty
-        entry: uv run ty check
+        entry: uv run --frozen --dev python scripts/check-types.py
         language: system
         pass_filenames: false
         always_run: true
